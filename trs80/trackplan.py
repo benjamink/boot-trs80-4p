@@ -23,7 +23,9 @@ def _size_code(size):
         raise ValueError(f"unsupported sector size {size}")
 
 
-def build_write_track(track, pad_to=PAD_LEN):
+def build_write_track(track, pad_to=PAD_LEN, fill=None):
+    """fill=None puts each sector's data in the stream (only safe if it has no F5/F6/F7 bytes);
+    fill=<byte> formats every sector with that byte -- the data is then written with Write Sector."""
     if not track.sectors:
         raise ValueError("track has no sectors")
     densities = {s.density for s in track.sectors}
@@ -44,7 +46,8 @@ def build_write_track(track, pad_to=PAD_LEN):
             raise ValueError(f"sector {s.num}: data length {len(s.data)} != size {s.size}")
         out += b"\x00" * zeros + sync + bytes([0xFE, s.cyl, s.side, s.num, _size_code(s.size), 0xF7])
         out += gap * (22 if mfm else 11)
-        out += b"\x00" * zeros + sync + bytes([s.dam]) + s.data + b"\xF7"
+        body = s.data if fill is None else bytes([fill]) * s.size
+        out += b"\x00" * zeros + sync + bytes([s.dam]) + body + b"\xF7"
         out += gap * (24 if mfm else 27)
     if len(out) > TRACK_CAPACITY:
         raise ValueError(f"track needs {len(out)} bytes but only {TRACK_CAPACITY} fit")

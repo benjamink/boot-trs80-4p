@@ -39,7 +39,7 @@ class FakeWD1773:
         elif port == 0xF2:
             self.sector = val
         elif port == 0xF3:
-            if self.mode == "write":
+            if self.mode in ("write", "wsec"):
                 self.wbuf.append(val)
             else:
                 self.data = val
@@ -81,6 +81,9 @@ class FakeWD1773:
                 self.rdq, self.mode, self.final = bytearray(), "read", 0x10      # RNF
             else:
                 self.rdq, self.mode, self.final = bytearray(d), "read", 0
+        elif c == 0xA4:                                 # write sector (normal data mark)
+            self.wbuf = bytearray()
+            self.mode, self.final, self.sec_target = "wsec", 0, (self.phys, self.side, self.sector)
         elif c == 0xF4:                                 # write track
             self.wbuf = bytearray()
             self.mode, self.final = "write", 0
@@ -100,6 +103,12 @@ class FakeWD1773:
             return self.final
         if self.mode == "read":
             if not self.rdq:
+                self.mode = None
+                return self.final
+            return 0x03 if self.reads % 2 == 0 else 0x01
+        if self.mode == "wsec":
+            if len(self.wbuf) >= 256:
+                self.disk[self.sec_target] = bytes(self.wbuf)
                 self.mode = None
                 return self.final
             return 0x03 if self.reads % 2 == 0 else 0x01
