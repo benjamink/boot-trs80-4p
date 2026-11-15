@@ -37,6 +37,19 @@ class StressTests(unittest.TestCase):
         r = run_stress(m, pings=3, mem_bytes=256, port_reads=1, seed=1)
         self.assertEqual(r.failures, r.operations)
 
+    def test_dead_link_aborts_after_consecutive_failures(self):
+        fake, m = rig()
+        fake.mute = True
+        r = run_stress(m, pings=500, mem_bytes=256, port_reads=1, seed=1, max_consecutive_failures=5)
+        self.assertTrue(r.aborted)
+        self.assertEqual(r.operations, 5)
+
+    def test_progress_callback_is_called(self):
+        fake, m = rig()
+        seen = []
+        run_stress(m, pings=10, mem_bytes=256, port_reads=1, seed=1, progress=lambda n: seen.append(n), progress_every=5)
+        self.assertEqual(seen, [5, 10])
+
 
 if __name__ == "__main__":
     unittest.main()
