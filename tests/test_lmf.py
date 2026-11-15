@@ -49,6 +49,25 @@ class LmfTests(unittest.TestCase):
                          "f8b5082864c0bde8800ce4b9080b37e564ae333f4e930015f288b561e67a8a23")
 
 
+class ParseLmfTests(unittest.TestCase):
+    def test_parse_lmf_roundtrip(self):
+        segs, entry = trs80boot.test_program()
+        got_segs, got_entry = lmf.parse_lmf(lmf.build_lmf(segs, entry, 16))
+        self.assertEqual(got_segs, segs)
+        self.assertEqual(got_entry, entry)
+
+    def test_parse_lmf_ignores_comment_records_and_stops_at_entry(self):
+        blob = bytes([0x05, 0x03, 0x41, 0x42, 0x43]) + lmf.lmf_data_block(0x8000, b"\x01\x02") \
+            + lmf.lmf_entry(0x8000) + bytes([0x01, 0x03, 0x00, 0x90, 0xFF])   # junk after entry
+        segs, entry = lmf.parse_lmf(blob)
+        self.assertEqual(segs, {0x8000: b"\x01\x02"})
+        self.assertEqual(entry, 0x8000)
+
+    def test_parse_lmf_truncated_raises(self):
+        with self.assertRaises(ValueError):
+            lmf.parse_lmf(bytes([0x01, 0x10, 0x00, 0x80, 0x01]))
+
+
 class SerialTests(unittest.TestCase):
     def test_handshake_times_out(self):
         master, slave = pty.openpty()

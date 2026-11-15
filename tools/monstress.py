@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Hardware gate for the resident monitor: hammer it and count failures.
+
+  tools/monstress.py [-p /dev/ttyUSB0]      (monitor must already be running: trs80mon.py boot)
+Exit status is non-zero if any operation failed.
+"""
+import argparse, os, random, sys
+from dataclasses import dataclass, field
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from trs80.monitor import Monitor, MonitorError  # noqa: E402
+
+
+@dataclass
+class StressResult:
+    operations: int = 0
+    failures: int = 0
+    retries: int = 0
+    messages: list = field(default_factory=list)
+
+
+def run_stress(mon, pings=500, mem_bytes=16384, port_reads=50, seed=None):
+    rnd = random.Random(seed)
+    r = StressResult()
+    start_retries = mon.retry_count
+
+    def op(name, fn):
+        r.operations += 1
+        try:
+            err = fn()
+        except MonitorError as e:
+            err = f"{e}"
+        if err:
+            r.failures += 1
+            r.messages.append(f"{name}: {err}")
+
+    def ping():
+        data = bytes(rnd.randrange(256) for _ in range(rnd.randrange(0, 251)))
+        return None if mon.ping(data) == data else "echo mismatch"
+
+    for i in range(pings):
+        op(f"ping {i}", ping)
+
+    blob = bytes(rnd.randrange(256) for _ in range(mem_bytes))
+    op("write_mem", lambda: mon.write_mem(0x8000, blob))
+    op("read_mem", lambda: None if mon.read_mem(0x8000, mem_bytes) == blob else "memory mismatch")
+
+    for i in range(port_reads):
+        op(f"port_in {i}", lambda: mon.port_in(0xEA) and None)
+
+    def exec_a():
+        mon.write_mem(0x8100, bytes([0x3E, 0x42, 0xC9]))        # LD A,42h ; RET
+        a = mon.exec(0x8100)["A"]
+        return None if a == 0x42 else f"A={a:#04x}"
+    op("exec", exec_a)
+
+    r.retries = mon.retry_count - start_retries
+    return r
+
+
+def main():
+    from trs80.serialio import SerialTransport, open_port
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("-p", "--port", default="/dev/ttyUSB0")
+    ap.add_argument("--pings", type=int, default=500)
+    ap.add_argument("--mem", type=int, default=16384)
+    a = ap.parse_args()
+    mon = Monitor(SerialTransport(open_port(a.port, 19200)))
+    mon.sync()
+    r = run_stress(mon, pings=a.pings, mem_bytes=a.mem)
+    print(f"operations={r.operations} failures={r.failures} retries={r.retries}")
+    for m in r.messages[:20]:
+        print("  FAIL", m)
+    sys.exit(1 if r.failures else 0)
+
+
+if __name__ == "__main__":
+    main()
