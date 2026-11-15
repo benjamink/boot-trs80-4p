@@ -55,10 +55,10 @@ def _verify_track(fdc, drive, track):
     for num, size, data in trackplan.verify_plan(track):
         try:
             got = fdc.read_sector(drive, track.cyl, track.side, num, size, track.sectors[0].density)
-        except FdcError:
-            return num
+        except FdcError as e:
+            return num, f"could not be read ({e})"
         if got != data:
-            return num
+            return num, "read back different data"
     return None
 
 
@@ -82,9 +82,9 @@ def write_image(fdc, image, drive, progress=print, retries=2):
                 bad = _verify_track(fdc, drive, track)
                 if bad is None:
                     break
-                progress(f"  C{cyl} H{side}: sector {bad} did not verify (attempt {attempt + 1}/{retries + 1})")
+                progress(f"  C{cyl} H{side}: sector {bad[0]} {bad[1]} (attempt {attempt + 1}/{retries + 1})")
             else:
-                raise WriteVerifyError(cyl, side, bad)
+                raise WriteVerifyError(cyl, side, bad[0])
             progress(f"cylinder {cyl} side {side}: {len(track.sectors)} sectors written and verified")
     if skipped:
         progress(f"skipped {len(skipped)} tracks with no sectors in the image: {', '.join(skipped)}")

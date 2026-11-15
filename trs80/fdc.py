@@ -28,10 +28,13 @@ class DriveInfo:
     status_text: str
 
 
-def latch(drive, side=0, density="MFM"):
+PRECOMP_FROM = 22          # write precompensation from this cylinder inward (as LS-DOS does for 5.25" DD)
+
+
+def latch(drive, side=0, density="MFM", precomp=False):
     if not 0 <= drive <= 3:
         raise ValueError("drive must be 0-3")
-    return (1 << drive) | (0x10 if side else 0) | (0x80 if density == "MFM" else 0)
+    return (1 << drive) | (0x10 if side else 0) | (0x20 if precomp else 0) | (0x80 if density == "MFM" else 0)
 
 
 class Fdc:
@@ -111,7 +114,7 @@ class Fdc:
             raise ValueError(f"the WD1773 can only write data marks FB or F8, not {dam:#04x}")
         if self.mon.read_mem(PB + 9, 1)[0] != 0xA5:
             return ERR_NOT_ARMED
-        lat = latch(drive, side, density)
+        lat = latch(drive, side, density, precomp=cyl >= PRECOMP_FROM)
         self.mon.write_mem(SECTOR_BUF, data)
         self.mon.write_mem(PB + 10, bytes([1 if dam == 0xF8 else 0]))
         if drive not in self._homed:
@@ -124,7 +127,7 @@ class Fdc:
         """Returns the routine's error code (0 ok, 1 refused: not armed, 2 timeout). Arming is one-shot."""
         if self.mon.read_mem(PB + 7, 1)[0] != 0xA5:      # refuse before touching the drive (Z80 re-checks)
             return ERR_NOT_ARMED
-        lat = latch(drive, side, density)
+        lat = latch(drive, side, density, precomp=cyl >= PRECOMP_FROM)
         self.mon.write_mem(STREAM_BUF, stream)
         if drive not in self._homed:
             self._home(drive, lat)

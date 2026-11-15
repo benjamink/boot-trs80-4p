@@ -121,6 +121,26 @@ class WriteImageTests(unittest.TestCase):
             writedisk.write_image(f, img, 0, progress=lambda *_: None)
         self.assertEqual(f.tracks_written, [])
 
+    def test_verify_message_says_mismatch_or_read_error(self):
+        f, msgs = FakeFdc(), []
+        f.probe(0)
+        f.corrupt[(1, 0, 2)] = 1
+        writedisk.write_image(f, tiny_image(), 0, progress=msgs.append, retries=2)
+        self.assertTrue(any("sector 2" in m and "read back different data" in m for m in msgs), msgs)
+        f2, msgs = FakeFdc(), []
+        f2.probe(0)
+        orig = f2.read_sector
+        calls = []
+
+        def flaky(drive, cyl, side, sector, size, density):
+            if (cyl, sector) == (1, 3) and not calls:
+                calls.append(1)
+                raise FdcError("RNF (status 0x10)")
+            return orig(drive, cyl, side, sector, size, density)
+        f2.read_sector = flaky
+        writedisk.write_image(f2, tiny_image(), 0, progress=msgs.append, retries=2)
+        self.assertTrue(any("sector 3" in m and "could not be read" in m and "RNF" in m for m in msgs), msgs)
+
 
 class CliTests(unittest.TestCase):
     def setUp(self):
