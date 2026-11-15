@@ -22,6 +22,7 @@ class FakeWD1773:
         self.reads = 0
         self.typeI_reads = 0
         self.commands = []
+        self.dams = {}              # (track, side, sector) -> data mark written by write sector
         self.max_cyl = 39           # head bumps the stop beyond this
         self.sides = 1
         self.ready = True
@@ -81,9 +82,10 @@ class FakeWD1773:
                 self.rdq, self.mode, self.final = bytearray(), "read", 0x10      # RNF
             else:
                 self.rdq, self.mode, self.final = bytearray(d), "read", 0
-        elif c == 0xA4:                                 # write sector (normal data mark)
+        elif c in (0xA4, 0xA5):                         # write sector (A4 normal mark FB, A5 deleted mark F8)
             self.wbuf = bytearray()
             self.mode, self.final, self.sec_target = "wsec", 0, (self.phys, self.side, self.sector)
+            self.dams[self.sec_target] = 0xF8 if c & 1 else 0xFB
         elif c == 0xF4:                                 # write track
             self.wbuf = bytearray()
             self.mode, self.final = "write", 0

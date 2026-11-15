@@ -103,6 +103,24 @@ class WriteImageTests(unittest.TestCase):
         with self.assertRaises(FdcError):
             writedisk.write_image(f, tiny_image(), 0, progress=lambda *_: None)
 
+    def test_deleted_data_mark_sectors_are_written_with_their_mark(self):
+        # LS-DOS marks directory sectors with F8; the first real write refused them
+        recs = [make_track([sector(0, 0, n, fill=0x41, dam=0xF8 if n == 1 else 0xFB) for n in (0, 1, 2)]), make_track([])]
+        img = dmk.parse_dmk(make_dmk(recs, tracks=1, sides=2))
+        f = FakeFdc()
+        f.probe(0)
+        writedisk.write_image(f, img, 0, progress=lambda *_: None)
+        self.assertEqual([f.dams[(0, 0, n)] for n in (0, 1, 2)], [0xFB, 0xF8, 0xFB])
+
+    def test_unwritable_data_mark_refuses_before_touching_the_disk(self):
+        recs = [make_track([sector(0, 0, 0, fill=0x41, dam=0xFA)]), make_track([])]
+        img = dmk.parse_dmk(make_dmk(recs, tracks=1, sides=2))
+        f = FakeFdc()
+        f.probe(0)
+        with self.assertRaises(FdcError):
+            writedisk.write_image(f, img, 0, progress=lambda *_: None)
+        self.assertEqual(f.tracks_written, [])
+
 
 class CliTests(unittest.TestCase):
     def setUp(self):

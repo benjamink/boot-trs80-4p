@@ -29,6 +29,7 @@ PB_STATUS equ PB+5     ; FDC status read after the command finished
 PB_ERR    equ PB+6     ; 0 ok, 1 write not armed (nothing touched), 2 timeout (aborted with D0)
 PB_ARMED  equ PB+7     ; A5h = next write_track is allowed; cleared by write_track
 PB_SPIN   equ PB+8     ; nonzero: wait ~0.4 s for the motor first
+PB_DEL    equ PB+10    ; bit 0 = write the DELETED data mark F8 (LS-DOS directory sectors); other bits ignored
 PB_ARMED_S equ PB+9    ; A5h = write_sector is allowed; cleared only by disarm/init
 
 F_CMD     equ 0F0h
@@ -77,7 +78,9 @@ ws_go:    call select
           ld a,(PB_SECTOR)
           out (F_SEC),a
           ld hl,(PB_BUF)
-          ld a,0A4h
+          ld a,(PB_DEL)
+          and 1
+          or 0A4h                  ; A4 = data mark FB, A5 = deleted mark F8
           out (F_CMD),a
           jp xfer_out
 

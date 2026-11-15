@@ -13,6 +13,7 @@ class FakeFdc:
         self.corrupt = {}             # (cyl, side, sector) -> remaining bad reads
         self.interrupt_on_track = None
         self.write_errors = 0
+        self.dams = {}
 
     def probe(self, drive):
         self.events.append("probe")
@@ -38,9 +39,10 @@ class FakeFdc:
         self.last_stream = stream
         return 0
 
-    def write_sector(self, drive, cyl, side, sector, data, density="MFM"):
+    def write_sector(self, drive, cyl, side, sector, data, density="MFM", dam=0xFB):
         if not self.armed:
             return 1
+        self.dams[(cyl, side, sector)] = dam
         self.disk[(cyl, side, sector)] = bytes(data)
         return self.write_errors and 2 or 0
 
