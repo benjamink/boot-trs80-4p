@@ -99,7 +99,7 @@ class FdcRoutineTests(unittest.TestCase):
         status, err = self.call("write_track", buf=0xA000, latch=0xA1)
         self.assertEqual(err, 0)
         self.assertEqual(bytes(self.fdc.wbuf[:6250]), pattern[:6250])
-        self.assertEqual(self.fdc.latch, 0xA1)
+        self.assertEqual(self.fdc.latch & 0xBF, 0xA1)                              # WSGEN (0x40) may be set
         self.assertEqual(0xF4 in self.fdc.commands, True)
         self.assertEqual(self.cpu.mem[P_ARMED], 0)
         before = len(self.fdc.log)
@@ -149,6 +149,17 @@ class FdcRoutineTests(unittest.TestCase):
         self.assertEqual(self.cpu.mem[P_ARMED], 0)
         status, err = self.call("write_sector", sector=11, buf=0xA000)
         self.assertEqual(err, 1)
+
+    def test_every_transfer_routine_runs_with_interrupts_disabled(self):
+        # the 60 Hz clock interrupt would steal ~100 us in the middle of a 32 us/byte transfer
+        self.fdc.disk[(0, 0, 1)] = bytes(256)
+        self.call("arm_write")
+        for name in ("restore", "seek", "read_addr", "read_sector", "write_sector", "write_track"):
+            self.cpu.iff = True
+            self.cpu.mem[0xA000:0xA000 + 6400] = bytes(6400)
+            self.call(name, sector=1, buf=0xA000)
+            self.assertFalse(self.cpu.iff, name)
+            self.call("arm_write")
 
 
 if __name__ == "__main__":
