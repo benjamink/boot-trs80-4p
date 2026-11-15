@@ -93,6 +93,31 @@ class FdcDriverTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.fdc.write_sector(0, 2, 0, 7, bytes(256), dam=0xF9)
 
+    def f4_values_during(self, fn):
+        start = len(self.wd.log)
+        fn()
+        return [v for k, p, v in self.wd.log[start:] if k == "out" and p == 0xF4]
+
+    def test_writes_on_inner_cylinders_enable_write_precompensation(self):
+        self.fdc.arm_write()
+        inner = self.f4_values_during(lambda: self.fdc.write_sector(0, 30, 0, 1, bytes(256)))
+        outer = self.f4_values_during(lambda: self.fdc.write_sector(0, 5, 0, 1, bytes(256)))
+        self.assertTrue(inner and all(v & 0x20 for v in inner), inner)
+        self.assertFalse(any(v & 0x20 for v in outer), outer)
+        edge = self.f4_values_during(lambda: self.fdc.write_sector(0, 22, 0, 1, bytes(256)))
+        self.assertTrue(all(v & 0x20 for v in edge))
+        edge = self.f4_values_during(lambda: self.fdc.write_sector(0, 21, 0, 1, bytes(256)))
+        self.assertFalse(any(v & 0x20 for v in edge))
+        stream = bytes(6400)
+        self.fdc.arm_write()
+        inner = self.f4_values_during(lambda: self.fdc.write_track(0, 30, 0, stream))
+        self.assertTrue(all(v & 0x20 for v in inner if v & 0x80), inner)
+
+    def test_reads_never_enable_precompensation(self):
+        self.wd.disk[(30, 0, 1)] = bytes(256)
+        vals = self.f4_values_during(lambda: self.fdc.read_sector(0, 30, 0, 1, 256, "MFM"))
+        self.assertFalse(any(v & 0x20 for v in vals), vals)
+
 
 if __name__ == "__main__":
     unittest.main()
