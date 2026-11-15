@@ -151,6 +151,10 @@ class Z80:
             d = self.fetch(); d -= 256 if d > 127 else 0
             if op == 0x18 or self.cond((op >> 3) & 3):
                 self.pc = (self.pc + d) & 0xFFFF
+        elif op == 0x1F:                                # RRA
+            c = R[7] & 1
+            R[7] = (R[7] >> 1) | ((self.F & C) << 7)
+            self.F = (self.F & (S | Z | PV)) | c
         elif op == 0x37: self.F = (self.F & ~(N | H)) | C
         elif 0x40 <= op <= 0x7F:
             if op == 0x76: raise NotImplementedError("HALT")
@@ -221,6 +225,16 @@ class Z80:
                 raise NotImplementedError(f"ED {op2:02X} at {self.pc - 2:04X}")
         else:
             raise NotImplementedError(f"opcode {op:02X} at {self.pc - 1:04X}")
+
+    def run_call(self, addr, sentinel=0xFFF0, max_steps=30_000_000):
+        """CALL addr and run until it returns."""
+        self.push(sentinel)
+        self.pc = addr
+        for _ in range(max_steps):
+            if self.pc == sentinel:
+                return
+            self.step()
+        raise RuntimeError(f"routine at {addr:04X} did not return")
 
     def run_until_idle(self, idle_pc, queue_empty, max_steps=20_000_000):
         """Run until the CPU is about to execute at idle_pc with nothing left to read."""
