@@ -94,3 +94,15 @@ class TrackPlanTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FormatFillTests(unittest.TestCase):
+    def test_fill_replaces_data_so_special_bytes_never_reach_write_track(self):
+        s = dmk.Sector(0, 0, 1, 256, 0xFB, bytes([0xF5, 0xF6, 0xF7, 0xE5] * 64), "MFM", True, True)
+        plain = tp.build_write_track(track([s]))
+        filled = tp.build_write_track(track([s]), fill=0xE5)
+        self.assertEqual(len(plain), len(filled))
+        self.assertIn(b"\xF5\xF6\xF7\xE5", plain)
+        body = filled[filled.index(b"\xFB") + 1:][:256]
+        self.assertEqual(body, b"\xE5" * 256)
+        self.assertEqual(id_sector_order(filled), [1])

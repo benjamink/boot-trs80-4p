@@ -12,11 +12,13 @@
 ;      below (~21 us worst case at 4 MHz) need 4 MHz. init sets it.
 ; Status bits: 0 BUSY, 1 DRQ, 2 TR00 (type I) / LOST DATA, 3 CRC error, 4 RNF (seek error),
 ;      5 write fault, 6 write protect, 7 not ready.
+; Write Track cannot carry data bytes F5/F6/F7 (they are controller commands), so tracks are
+; formatted with filler and every sector is then written with Write Sector (A4, normal data mark).
 ; Commands used: 03 restore (6..30 ms steps, no verify), 13 seek (no verify), C4 read address,
 ;      84 read sector, F4 write track, D0 force interrupt.
 ;
 ; Entry points (jump table): 8000 init, 8003 restore, 8006 seek, 8009 read_addr,
-;      800C read_sector, 800F arm_write, 8012 write_track.
+;      800C read_sector, 800F arm_write, 8012 write_track, 8015 write_sector, 8018 disarm.
 
 PB        equ 9F00h
 PB_LATCH  equ PB+0     ; value for F4 before each command
@@ -27,6 +29,7 @@ PB_STATUS equ PB+5     ; FDC status read after the command finished
 PB_ERR    equ PB+6     ; 0 ok, 1 write not armed (nothing touched), 2 timeout (aborted with D0)
 PB_ARMED  equ PB+7     ; A5h = next write_track is allowed; cleared by write_track
 PB_SPIN   equ PB+8     ; nonzero: wait ~0.4 s for the motor first
+PB_ARMED_S equ PB+9    ; A5h = write_sector is allowed; cleared only by disarm/init
 
 F_CMD     equ 0F0h
 F_TRK     equ 0F1h
@@ -42,17 +45,40 @@ F_SEL     equ 0F4h
           jp read_sector
           jp arm_write
           jp write_track
+          jp write_sector
+          jp disarm
 
 init:     xor a
           out (0E4h),a             ; no NMI sources
           ld (PB_ARMED),a
+          ld (PB_ARMED_S),a
           ld a,40h
           out (0ECh),a             ; FAST, everything else off
           ret
 
 arm_write: ld a,0A5h
           ld (PB_ARMED),a
+          ld (PB_ARMED_S),a
           ret
+
+disarm:   xor a
+          ld (PB_ARMED),a
+          ld (PB_ARMED_S),a
+          ret
+
+write_sector: ld a,(PB_ARMED_S)
+          cp 0A5h
+          jr z,ws_go
+          ld a,1                   ; refuse: no port is touched
+          ld (PB_ERR),a
+          ret
+ws_go:    call select
+          ld a,(PB_SECTOR)
+          out (F_SEC),a
+          ld hl,(PB_BUF)
+          ld a,0A4h
+          out (F_CMD),a
+          jp xfer_out
 
 ; select drive/side/density, clear the error code, optionally wait for the motor
 select:   ld a,(PB_LATCH)

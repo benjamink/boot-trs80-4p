@@ -7,8 +7,10 @@ from tests.z80emu import Z80, load_hex
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PB = 0x9F00
 P_LATCH, P_TRACK, P_SECTOR, P_BUF, P_STATUS, P_ERR, P_ARMED, P_SPIN = (PB + i for i in (0, 1, 2, 3, 5, 6, 7, 8))
+P_ARMED_S = PB + 9
 ENTRY = dict(init=0x8000, restore=0x8003, seek=0x8006, read_addr=0x8009,
-             read_sector=0x800C, arm_write=0x800F, write_track=0x8012)
+             read_sector=0x800C, arm_write=0x800F, write_track=0x8012,
+             write_sector=0x8015, disarm=0x8018)
 
 
 @unittest.skipUnless(shutil.which("sjasmplus"), "sjasmplus not installed")
@@ -124,6 +126,29 @@ class FdcRoutineTests(unittest.TestCase):
         self.fdc = FakeWD1773()
         self.call("restore", spin=1)
         self.assertGreater(self.cpu.steps, quick + 50000)
+
+    def test_write_sector_refused_when_not_armed(self):
+        self.cpu.mem[0xA000:0xA100] = bytes(256)
+        status, err = self.call("write_sector", sector=3, buf=0xA000)
+        self.assertEqual(err, 1)
+        self.assertEqual([e for e in self.fdc.log if e[0] == "out"], [])
+
+    def test_write_sector_armed_writes_all_bytes_and_stays_armed_until_disarm(self):
+        data = bytes([0xF5, 0xF6, 0xF7] + list(range(253)))
+        self.cpu.mem[0xA000:0xA100] = data
+        self.fdc.phys = self.fdc.track = 4
+        self.call("arm_write")
+        status, err = self.call("write_sector", sector=9, buf=0xA000, latch=0x81)
+        self.assertEqual(err, 0)
+        self.assertIn(0xA4, self.fdc.commands)
+        self.assertEqual(self.fdc.disk[(4, 0, 9)], data)
+        status, err = self.call("write_sector", sector=10, buf=0xA000)           # still armed
+        self.assertEqual(err, 0)
+        self.call("disarm")
+        self.assertEqual(self.cpu.mem[P_ARMED_S], 0)
+        self.assertEqual(self.cpu.mem[P_ARMED], 0)
+        status, err = self.call("write_sector", sector=11, buf=0xA000)
+        self.assertEqual(err, 1)
 
 
 if __name__ == "__main__":

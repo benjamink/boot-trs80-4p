@@ -67,6 +67,24 @@ class FdcDriverTests(unittest.TestCase):
         with self.assertRaises(FdcError):
             self.fdc.read_sector(0, 2, 0, 7, 256, "MFM")                   # RNF
 
+    def test_write_sector_refused_unarmed_then_writes_special_bytes_when_armed(self):
+        data = bytes([0xF5, 0xF6, 0xF7] + list(range(253)))
+        self.assertEqual(self.fdc.write_sector(0, 2, 0, 5, data), 1)
+        self.assertEqual(self.wd.disk, {})
+        self.fdc.arm_write()
+        self.assertEqual(self.fdc.write_sector(0, 2, 0, 5, data), 0)
+        self.assertEqual(self.wd.disk[(2, 0, 5)], data)
+        self.fdc.disarm()
+        self.assertEqual(self.fdc.write_sector(0, 2, 0, 6, data), 1)
+
+    def test_probe_records_probed_drive_only_when_present(self):
+        self.wd.ready = False
+        self.fdc.probe(0)
+        self.assertNotIn(0, self.fdc.probed)
+        self.wd.ready = True
+        self.fdc.probe(0)
+        self.assertIn(0, self.fdc.probed)
+
 
 if __name__ == "__main__":
     unittest.main()

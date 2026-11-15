@@ -6,7 +6,8 @@ from trs80.lmf import parse_hex
 
 PB = 0x9F00
 ENTRY = dict(init=0x8000, restore=0x8003, seek=0x8006, read_addr=0x8009,
-             read_sector=0x800C, arm_write=0x800F, write_track=0x8012)
+             read_sector=0x800C, arm_write=0x800F, write_track=0x8012,
+             write_sector=0x8015, disarm=0x8018)
 STREAM_BUF = 0xA000          # write-track stream (up to 6.4 KB)
 SECTOR_BUF = 0xC000
 ERR_NOT_ARMED, ERR_TIMEOUT = 1, 2
@@ -38,6 +39,7 @@ class Fdc:
         self.mon, self.hex_path = mon, hex_path
         self.last_status = 0
         self._homed = set()
+        self.probed = set()          # drives whose probe found a ready, formatted disk
 
     def upload(self):
         segs, _ = parse_hex(self.hex_path)
@@ -72,6 +74,7 @@ class Fdc:
         if not status & ST_TR00:
             return DriveInfo(drive, False, -1, 0, f"restore did not reach track 0 (status {status:#04x})")
         self._homed.add(drive)
+        self.probed.add(drive)
         text, density = "", None
         for d in ("MFM", "FM"):
             _, err = self._call("read_addr", latch(drive, 0, d), buf=SECTOR_BUF)
@@ -97,6 +100,21 @@ class Fdc:
 
     def arm_write(self):
         self.mon.exec(ENTRY["arm_write"])
+
+    def disarm(self):
+        self.mon.exec(ENTRY["disarm"])
+
+    def write_sector(self, drive, cyl, side, sector, data, density="MFM"):
+        """Needs arm_write first (stays armed until disarm). Returns 0 ok, 1 not armed, 2 timeout."""
+        if self.mon.read_mem(PB + 9, 1)[0] != 0xA5:
+            return ERR_NOT_ARMED
+        lat = latch(drive, side, density)
+        self.mon.write_mem(SECTOR_BUF, data)
+        if drive not in self._homed:
+            self._home(drive, lat)
+        self._call("seek", lat, track=cyl)
+        _, err = self._call("write_sector", lat, sector=sector, buf=SECTOR_BUF)
+        return err
 
     def write_track(self, drive, cyl, side, stream, density="MFM"):
         """Returns the routine's error code (0 ok, 1 refused: not armed, 2 timeout). Arming is one-shot."""
