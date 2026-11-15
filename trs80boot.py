@@ -18,62 +18,9 @@ Protocol per Douglas Beattie Jr.'s SBOOT4 (hytherion.com/beattidp/comput/trs80.h
 """
 import argparse, os, select, sys, termios, time, tty
 
-BAUDS = {9600: termios.B9600, 19200: termios.B19200, 38400: termios.B38400}
-
-
-# ---------- load module format -------------------------------------------
-def lmf_data_block(addr, data):
-    """Type 01 block: [01][len][addr lo][addr hi][data]; len counts addr+data, 256 -> 0."""
-    assert 0 < len(data) <= 254
-    return bytes([0x01, (len(data) + 2) & 0xFF, addr & 0xFF, addr >> 8]) + data
-
-
-def lmf_entry(addr):
-    return bytes([0x02, 0x02, addr & 0xFF, addr >> 8])
-
-
-def build_lmf(segments, entry, block=16):
-    """segments: {addr: bytes}. Splits into <=254-byte blocks."""
-    out = bytearray()
-    for addr, data in sorted(segments.items()):
-        for i in range(0, len(data), block):
-            out += lmf_data_block(addr + i, data[i:i + block])
-    out += lmf_entry(entry)
-    return bytes(out)
-
-
-def parse_hex(path):
-    """Intel HEX -> (contiguous segments dict, entry or None)."""
-    mem, entry = {}, None
-    for n, line in enumerate(open(path), 1):
-        line = line.strip()
-        if not line:
-            continue
-        if line[0] != ':':
-            raise SystemExit(f"{path}:{n}: not an Intel HEX line")
-        raw = bytes.fromhex(line[1:])
-        if sum(raw) & 0xFF:
-            raise SystemExit(f"{path}:{n}: checksum error")
-        ln, addr, typ, data = raw[0], (raw[1] << 8) | raw[2], raw[3], raw[4:-1]
-        if typ == 0:
-            for i, b in enumerate(data):
-                mem[addr + i] = b
-        elif typ == 1:
-            break
-        elif typ in (3, 5) or (typ == 3 and ln == 0):
-            # Beattie's tools put the entry point in the address field of an empty type-03 record
-            entry = addr if ln == 0 else int.from_bytes(data[-2:], "big")
-    segs, start, buf = {}, None, bytearray()
-    for a in sorted(mem):
-        if start is not None and a == start + len(buf):
-            buf.append(mem[a])
-        else:
-            if start is not None:
-                segs[start] = bytes(buf)
-            start, buf = a, bytearray([mem[a]])
-    if start is not None:
-        segs[start] = bytes(buf)
-    return segs, entry
+from trs80.lmf import build_lmf, parse_hex
+from trs80.serialio import (BAUDS, FORMATS, LoaderNotReady, handshake, open_port,
+                            read_all, set_format)
 
 
 # ---------- built-in test program (hand-assembled Z80, loaded at 6000h) ----
@@ -143,68 +90,6 @@ def test_program():
         A.data(f"m{i}", m + b"\x00")
     A.data("smsg", b"4P RUNNING: HELLO FROM THE TRS-80\r\n\x00")
     return A.done(), 0x6000
-
-
-# ---------- serial -------------------------------------------------------
-FORMATS = {  # ROM loader needs 8 data bits + ODD parity (Model 4P Service Manual); 1 or 2 stop bits
-    "8O1": termios.CS8 | termios.PARENB | termios.PARODD,
-    "8O2": termios.CS8 | termios.PARENB | termios.PARODD | termios.CSTOPB,
-    "8N1": termios.CS8,   # handshake bytes 0x55/0xFF happen to pass in 8N1, but file data will NOT
-}
-
-
-def open_port(dev, baud):
-    fd = os.open(dev, os.O_RDWR | os.O_NOCTTY)
-    tty.setraw(fd)
-    set_format(fd, baud, "8O1")
-    return fd
-
-
-def set_format(fd, baud, fmt):
-    a = termios.tcgetattr(fd)
-    a[0] = 0                                   # no sw flow control, don't drop parity errors
-    a[2] = FORMATS[fmt] | termios.CREAD | termios.CLOCAL
-    a[3] = 0
-    a[4] = a[5] = BAUDS[baud]
-    a[6][termios.VMIN], a[6][termios.VTIME] = 0, 0
-    termios.tcsetattr(fd, termios.TCSANOW, a)
-    termios.tcflush(fd, termios.TCIOFLUSH)
-
-
-def read_all(fd, wait=0.0):
-    """Return whatever bytes arrive within `wait` seconds (empty if none)."""
-    out = b""
-    end = time.time() + wait
-    while True:
-        r, _, _ = select.select([fd], [], [], max(0, end - time.time()))
-        if not r:
-            return out
-        out += os.read(fd, 256)
-        end = max(end, time.time() + 0.05)
-
-
-def handshake(fd, baud, formats, verbose=True):
-    """ROM serial loader handshake (as SBOOT4): send 0x55 until the 4P answers,
-    then send 0xFF sync and wait for its answer. Cycles through serial formats."""
-    print("handshake: sending 0x55 until the 4P answers (Ctrl-C to give up)")
-    while True:
-        for fmt in formats:
-            set_format(fd, baud, fmt)
-            end = time.time() + 6   # ROM needs ~20 good bytes at 0.1s spacing
-            while time.time() < end:
-                os.write(fd, b"\x55")
-                termios.tcdrain(fd)
-                got = read_all(fd, 0.1)
-                if got:
-                    print(f"  reply to 0x55 with {fmt}: {got.hex(' ')}")
-                    read_all(fd, 0.3)                      # drain
-                    os.write(fd, b"\xff"); termios.tcdrain(fd)
-                    sync = read_all(fd, 1.0)
-                    print(f"  reply to sync 0xFF: {sync.hex(' ') or '(none)'}")
-                    if sync[:1] == b"E":
-                        raise SystemExit("4P reported an error ('E') during sync")
-                    return fmt
-            print(f"  no reply with {fmt}, trying next format...")
 
 
 def send(fd, blob, byte_delay=0.0):
@@ -277,7 +162,10 @@ def main():
         input("On the 4P: hold RIGHT SHIFT, press RESET, keep holding until 'Not Ready'/'Ready'\n"
               "appears, then press Enter here... ")
     fmts = [a.format] if a.format else list(FORMATS)
-    fmt = handshake(fd, a.baud, fmts)
+    try:
+        fmt = handshake(fd, a.baud, fmts)
+    except LoaderNotReady as e:
+        raise SystemExit(str(e))
     print(f"handshake OK with {fmt}")
     if "O" not in fmt:
         print("note: handshake only passed in 8N1; switching to 8O1 (odd parity) for the file")
