@@ -14,6 +14,7 @@ class Z80:
         self.mem = bytearray(65536)
         self.R = [0] * 8            # B C D E H L (HL) A
         self.F = 0
+        self.iff = True             # interrupts start enabled, as the ROM loader may leave them
         self.sp = 0xFFFF
         self.pc = 0
         self.io_in = lambda port: 0xFF
@@ -183,7 +184,8 @@ class Z80:
         elif op == 0xCD:
             a = self.fetch16(); self.push(self.pc); self.pc = a
         elif op == 0xE9: self.pc = self.hl()
-        elif op in (0xF3, 0xFB): pass
+        elif op == 0xF3: self.iff = False
+        elif op == 0xFB: self.iff = True
         elif op == 0xD3: self.io_out(self.fetch(), R[7])
         elif op == 0xDB: R[7] = self.io_in(self.fetch())
         elif op == 0xCB:

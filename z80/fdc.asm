@@ -48,7 +48,8 @@ F_SEL     equ 0F4h
           jp write_sector
           jp disarm
 
-init:     xor a
+init:     di
+          xor a
           out (0E4h),a             ; no NMI sources
           ld (PB_ARMED),a
           ld (PB_ARMED_S),a
@@ -81,7 +82,8 @@ ws_go:    call select
           jp xfer_out
 
 ; select drive/side/density, clear the error code, optionally wait for the motor
-select:   ld a,(PB_LATCH)
+select:   di                       ; the 60 Hz clock interrupt would steal ~100 us mid-transfer (32 us/byte)
+          ld a,(PB_LATCH)
           out (F_SEL),a
           xor a
           ld (PB_ERR),a
@@ -167,49 +169,54 @@ wt_go:    xor a
           out (F_CMD),a
           jp xfer_out
 
-; ---- data transfer: first wait (with timeout) for DRQ or completion, then a tight loop ----
+; ---- data transfer ----
+; Every byte: OUT to the drive-select latch with WSGEN (D6) set holds the CPU in WAIT until the
+; controller raises DRQ or INTRQ (hardware watchdog 1024 us), then IN status / IN or OUT data. That keeps
+; the gap between DRQ and our data access to ~37 T-states (a byte lasts 32 us). Polling first and
+; then branching into a loop was ~110 T and lost byte 0 on real hardware (measured on the 4P).
+; BC counts empty waits (<= ~1 ms each): about 3 s before giving up and sending Force Interrupt.
 xfer_in:  call delay50
-          ld de,0                  ; ~1 s at 4 MHz
-xia:      in a,(F_CMD)
-          rra
-          jp nc,done_status        ; not busy: finished (e.g. RNF)
-          rra
-          jr c,xi_fast             ; DRQ up
-          dec de
-          ld a,d
-          or e
-          jr nz,xia
-          jp aborted
-xi_fast:  in a,(F_CMD)             ; ---- 62 T per byte, 47 T idle ----
+          ld bc,3000
+          ld a,(PB_LATCH)
+          or 40h
+          ld d,a
+xi_l:     ld a,d
+          out (F_SEL),a
+          in a,(F_CMD)
           bit 1,a
-          jr z,xi_chk
+          jr z,xi_none
           in a,(F_DAT)
           ld (hl),a
           inc hl
-          jr xi_fast
-xi_chk:   rra
-          jr c,xi_fast
-          jp done_status
+          ld bc,3000               ; timeout counts empty waits since the LAST byte
+          jr xi_l
+xi_none:  rra
+          jp nc,done_status        ; not busy: the command has finished
+          dec bc
+          ld a,b
+          or c
+          jr nz,xi_l
+          jp aborted
 
 xfer_out: call delay50
-          ld de,0
-xoa:      in a,(F_CMD)
-          rra
-          jp nc,done_status
-          rra
-          jr c,xo_fast
-          dec de
-          ld a,d
-          or e
-          jr nz,xoa
-          jp aborted
-xo_fast:  in a,(F_CMD)
+          ld bc,3000
+          ld a,(PB_LATCH)
+          or 40h
+          ld d,a
+xo_l:     ld a,d
+          out (F_SEL),a
+          in a,(F_CMD)
           bit 1,a
-          jr z,xo_chk
+          jr z,xo_none
           ld a,(hl)
           out (F_DAT),a
           inc hl
-          jr xo_fast
-xo_chk:   rra
-          jr c,xo_fast
-          jp done_status
+          ld bc,3000
+          jr xo_l
+xo_none:  rra
+          jp nc,done_status
+          dec bc
+          ld a,b
+          or c
+          jr nz,xo_l
+          jp aborted
