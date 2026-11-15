@@ -82,6 +82,7 @@ class Fdc:
             return DriveInfo(drive, True, -1, 0, "ready but no readable address mark (unformatted?)")
         max_track = -1
         for t in (79, 39):
+            self._call("restore", latch(drive, 0, density))      # register and head must agree before a seek
             self._call("seek", latch(drive, 0, density), track=t)
             _, err = self._call("read_addr", latch(drive, 0, density))
             got = self.mon.read_mem(SECTOR_BUF, 1)[0]

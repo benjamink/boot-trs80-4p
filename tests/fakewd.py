@@ -6,7 +6,8 @@ class FakeWD1773:
     PORTS = (0xF0, 0xF1, 0xF2, 0xF3, 0xF4)
 
     def __init__(self):
-        self.track = 0
+        self.track = 0              # the controller's track REGISTER
+        self.phys = 0               # where the head really is
         self.sector = 0
         self.data = 0
         self.latch = None
@@ -62,16 +63,17 @@ class FakeWD1773:
             self.mode, self.stuck = None, False
             self.final = 0
         elif c & 0xF0 == 0x00:                          # restore
-            self.track = 0
+            self.track = self.phys = 0
             self.mode, self.typeI_reads, self.final = "typeI", 0, 0x04 | self._nr()
         elif c & 0xF0 == 0x10:                          # seek (data register = destination)
-            self.track = min(self.data, self.max_cyl)
-            self.mode, self.typeI_reads, self.final = "typeI", 0, (0x04 if self.track == 0 else 0) | self._nr()
+            self.phys = max(0, min(self.max_cyl, self.phys + self.data - self.track))
+            self.track = self.data
+            self.mode, self.typeI_reads, self.final = "typeI", 0, (0x04 if self.phys == 0 else 0) | self._nr()
         elif c == 0xC4:                                 # read address
             if not self.ready or self.side >= self.sides:
                 self.rdq, self.mode, self.final = bytearray(), "read", 0x10 | self._nr()
             else:
-                self.rdq = bytearray([self.track, self.side, 1, 1, 0xAA, 0xBB])
+                self.rdq = bytearray([self.phys, self.side, 1, 1, 0xAA, 0xBB])
                 self.mode, self.final = "read", 0
         elif c == 0x84:                                 # read sector
             d = self.disk.get((self.track, self.side, self.sector))
