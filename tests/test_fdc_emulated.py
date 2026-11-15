@@ -67,7 +67,7 @@ class FdcRoutineTests(unittest.TestCase):
         self.assertEqual((self.fdc.track, err), (17, 0))
 
     def test_read_addr_returns_six_bytes(self):
-        self.fdc.track = 5
+        self.fdc.phys = 5
         status, err = self.call("read_addr", buf=0xC000)
         self.assertEqual(bytes(self.cpu.mem[0xC000:0xC006]), bytes([5, 0, 1, 1, 0xAA, 0xBB]))
         self.assertEqual((status, err), (0, 0))
