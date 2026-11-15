@@ -206,3 +206,16 @@ interleave LS-DOS uses. Accept at least the format the owner's image arrives in.
   are present in the file but contain no sectors. Every ID and data CRC is valid.
   Consequence: the writer reproduces each track's sector order exactly and **skips
   tracks with no sectors**; a single-sided 40-track disk is what gets written.
+- **Write Track cannot carry arbitrary data (Task 8):** the WD179x treats data bytes F5/F6/F7 as
+  sync/CRC commands. 397 of 720 sectors in `LD4-631.DSK` contain them. So each track is formatted with
+  filler (E5) from the image's layout and every sector is then written with Write Sector, which
+  accepts any byte; everything is read back and compared.
+- **Drive 0 (Task 7, measured on the owner's 4P):** ready, MFM, 40 tracks (highest readable track 39).
+- **File system (Task 9, `trs80/lsdosfs.py`):** directory cylinder = byte 2 of the boot sector (20 on all
+  three images); GAT at sector 0, HIT sector 1, directory from sector 2; 3 granules per cylinder, 6 sectors
+  per granule; extents run across cylinder boundaries.
+- **Chosen image: `L631NEW.DSK`.** All three are bootable by our check (boot sector `00 FE 14`, `SYS0/SYS`
+  present) and differ only in `BOOT/SYS` (and `SYSTEM/JCL` exists only on `LD4-631`). The upstream README
+  describes `L631NEW` as the bootable disk meant to receive new binaries; it is also the smallest.
+  Fallback if it does not boot on the 4P: `LD4-631.DSK`. **All three disks are full** (0-1 of 120 granules
+  free), so adding TRSDW will require deleting non-essential files (Task 11/12).
