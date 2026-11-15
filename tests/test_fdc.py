@@ -85,6 +85,14 @@ class FdcDriverTests(unittest.TestCase):
         self.fdc.probe(0)
         self.assertIn(0, self.fdc.probed)
 
+    def test_write_sector_deleted_mark(self):
+        self.fdc.arm_write()
+        self.assertEqual(self.fdc.write_sector(0, 2, 0, 5, bytes(256), dam=0xF8), 0)
+        self.assertEqual(self.fdc.write_sector(0, 2, 0, 6, bytes(256)), 0)
+        self.assertEqual((self.wd.dams[(2, 0, 5)], self.wd.dams[(2, 0, 6)]), (0xF8, 0xFB))
+        with self.assertRaises(ValueError):
+            self.fdc.write_sector(0, 2, 0, 7, bytes(256), dam=0xF9)
+
 
 if __name__ == "__main__":
     unittest.main()

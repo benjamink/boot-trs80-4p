@@ -8,6 +8,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PB = 0x9F00
 P_LATCH, P_TRACK, P_SECTOR, P_BUF, P_STATUS, P_ERR, P_ARMED, P_SPIN = (PB + i for i in (0, 1, 2, 3, 5, 6, 7, 8))
 P_ARMED_S = PB + 9
+P_DEL = PB + 10
 ENTRY = dict(init=0x8000, restore=0x8003, seek=0x8006, read_addr=0x8009,
              read_sector=0x800C, arm_write=0x800F, write_track=0x8012,
              write_sector=0x8015, disarm=0x8018)
@@ -160,6 +161,19 @@ class FdcRoutineTests(unittest.TestCase):
             self.call(name, sector=1, buf=0xA000)
             self.assertFalse(self.cpu.iff, name)
             self.call("arm_write")
+
+    def test_write_sector_uses_deleted_mark_command_only_when_asked(self):
+        self.cpu.mem[0xA000:0xA100] = bytes(256)
+        self.fdc.phys = self.fdc.track = 4
+        self.call("arm_write")
+        self.cpu.mem[P_DEL] = 0
+        self.call("write_sector", sector=1, buf=0xA000)
+        self.cpu.mem[P_DEL] = 1
+        self.call("write_sector", sector=2, buf=0xA000)
+        self.cpu.mem[P_DEL] = 0xFF                      # only bit 0 may pick the command; never 0xA4|garbage
+        self.call("write_sector", sector=3, buf=0xA000)
+        self.assertEqual([c for c in self.fdc.commands if c & 0xFE == 0xA4], [0xA4, 0xA5, 0xA5])
+        self.assertEqual([self.fdc.dams[(4, 0, n)] for n in (1, 2, 3)], [0xFB, 0xF8, 0xF8])
 
 
 if __name__ == "__main__":

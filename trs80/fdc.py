@@ -104,12 +104,16 @@ class Fdc:
     def disarm(self):
         self.mon.exec(ENTRY["disarm"])
 
-    def write_sector(self, drive, cyl, side, sector, data, density="MFM"):
-        """Needs arm_write first (stays armed until disarm). Returns 0 ok, 1 not armed, 2 timeout."""
+    def write_sector(self, drive, cyl, side, sector, data, density="MFM", dam=0xFB):
+        """Needs arm_write first (stays armed until disarm). dam: 0xFB normal or 0xF8 deleted (the only
+        two the WD1773 can write). Returns 0 ok, 1 not armed, 2 timeout."""
+        if dam not in (0xFB, 0xF8):
+            raise ValueError(f"the WD1773 can only write data marks FB or F8, not {dam:#04x}")
         if self.mon.read_mem(PB + 9, 1)[0] != 0xA5:
             return ERR_NOT_ARMED
         lat = latch(drive, side, density)
         self.mon.write_mem(SECTOR_BUF, data)
+        self.mon.write_mem(PB + 10, bytes([1 if dam == 0xF8 else 0]))
         if drive not in self._homed:
             self._home(drive, lat)
         self._call("seek", lat, track=cyl)

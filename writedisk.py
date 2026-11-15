@@ -44,9 +44,7 @@ def _write_track_once(fdc, drive, track):
         if err:
             raise FdcError(f"write track C{track.cyl} H{track.side} failed (error {err})")
         for s in track.sectors:
-            if s.dam != 0xFB:
-                raise FdcError(f"sector {s.num}: only normal data marks can be written (got {s.dam:#04x})")
-            err = fdc.write_sector(drive, track.cyl, track.side, s.num, s.data, s.density)
+            err = fdc.write_sector(drive, track.cyl, track.side, s.num, s.data, s.density, s.dam)
             if err:
                 raise FdcError(f"write sector C{track.cyl} H{track.side} S{s.num} failed (error {err})")
     finally:
@@ -67,6 +65,11 @@ def _verify_track(fdc, drive, track):
 def write_image(fdc, image, drive, progress=print, retries=2):
     if drive not in fdc.probed:
         raise RuntimeError("probe the drive before writing")
+    for cyl in range(image.tracks):                    # refuse up front, before the disk is touched
+        for side in range(image.sides):
+            for s in image.get(cyl, side).sectors:
+                if s.dam not in (0xFB, 0xF8):
+                    raise FdcError(f"C{cyl} H{side} S{s.num}: the WD1773 can only write data marks FB or F8, not {s.dam:#04x}")
     skipped = []
     for cyl in range(image.tracks):
         for side in range(image.sides):
