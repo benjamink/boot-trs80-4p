@@ -193,3 +193,16 @@ interleave LS-DOS uses. Accept at least the format the owner's image arrives in.
   format and write them. That gives spare disks for testing the writer.
 - **Drive geometry** (40/80 track, sides) is still to be found by the read-only
   probe stage.
+
+## Findings (recorded during implementation)
+
+- **Image layout (Task 5, measured from `LD4-631.DSK`, `LD4-631L.DSK`, `L631NEW.DSK`;
+  identical geometry in all three):** DMK header says 40 tracks / 2 sides / 6400-byte
+  records; 79 of 80 records are present (cyl 39 side 1 is missing from the file). Side 0
+  carries all the data: 40 cylinders, **18 sectors per track, 256 bytes, all MFM
+  (double density, including track 0)**, normal data address marks (FB), sector
+  numbers **0–17** (not 1–18). Sectors are interleaved and skewed per track (cyl 0
+  order `0 9 1 10 2 11 …`, cyl 1 starts at 5, cyl 17 at 4, cyl 39 at 6). Side-1 tracks
+  are present in the file but contain no sectors. Every ID and data CRC is valid.
+  Consequence: the writer reproduces each track's sector order exactly and **skips
+  tracks with no sectors**; a single-sided 40-track disk is what gets written.
