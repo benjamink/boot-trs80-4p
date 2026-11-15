@@ -65,6 +65,23 @@ class MonitorTests(unittest.TestCase):
         fake.ports[0xEA] = 0x77
         self.assertEqual(m.port_in(0xEA), 0x77)
 
+    def test_retry_count_is_tracked(self):
+        fake, m = make()
+        m.ping(b"a")
+        self.assertEqual(m.retry_count, 0)
+        fake.drop_next_response()
+        m.ping(b"b")
+        self.assertEqual(m.retry_count, 1)
+
+    def test_sync_recovers_from_stale_duplicate(self):
+        fake = FakeFourP()
+        Monitor(fake, timeout=0.01).ping(b"old")                  # 4P now remembers seq 0
+        stale = Monitor(fake, timeout=0.01).ping(b"new")           # fresh client reuses seq 0
+        self.assertEqual(stale, b"old")                            # the hazard: replayed answer
+        m = Monitor(fake, timeout=0.01)
+        m.sync()
+        self.assertEqual(m.ping(b"z"), b"z")
+
     def test_sequence_numbers_wrap(self):
         _, m = make()
         for i in range(300):

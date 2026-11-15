@@ -3,6 +3,8 @@
 Transport interface: write(data: bytes) -> None; read(timeout: float) -> bytes
 (returns whatever is available, b"" when the timeout expires with nothing).
 """
+import os
+
 from trs80 import frames as F
 
 REG_ORDER = "AFBCDEHL"
@@ -20,12 +22,15 @@ class Monitor:
         self.timeout = timeout
         self.retries = retries
         self.seq = 0
+        self.retry_count = 0       # resends so far (diagnostics)
 
     def _request(self, cmd, payload=b""):
         seq = self.seq
         self.seq = (self.seq + 1) & 0xFF
         frame = F.encode_request(cmd, seq, payload)
-        for _ in range(self.retries):
+        for attempt in range(self.retries):
+            if attempt:
+                self.retry_count += 1
             self.t.write(frame)             # a retry resends the same seq
             buf = b""
             while True:
@@ -44,6 +49,16 @@ class Monitor:
                     break                   # timed out: resend
                 buf += chunk
         raise MonitorError(f"no valid answer to command {cmd} after {self.retries} tries")
+
+    def sync(self, tries=4):
+        """Start of a session: the 4P remembers the last seq it answered and replays that
+        answer for a repeat, so a fresh client that reuses seq 0 could get a stale reply.
+        Ping with a random payload until the echo matches (each try uses a new seq)."""
+        for _ in range(tries):
+            payload = os.urandom(8)
+            if self.ping(payload) == payload:
+                return
+        raise MonitorError("could not synchronise sequence numbers with the 4P")
 
     def ping(self, payload=b""):
         return self._request(F.CMD_PING, payload)

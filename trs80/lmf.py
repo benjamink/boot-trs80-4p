@@ -55,3 +55,35 @@ def parse_hex(path):
     if start is not None:
         segs[start] = bytes(buf)
     return segs, entry
+
+
+def parse_lmf(blob):
+    """Load module -> (contiguous segments dict, entry or None). Stops at the first
+    transfer-address record; other record types (comments) are skipped."""
+    mem, entry, i = {}, None, 0
+    while i < len(blob):
+        if i + 2 > len(blob):
+            raise ValueError("truncated load module")
+        typ, ln = blob[i], blob[i + 1] or 256
+        body = blob[i + 2:i + 2 + ln]
+        if len(body) < ln:
+            raise ValueError("truncated load module")
+        i += 2 + ln
+        if typ == 1:
+            addr = body[0] | (body[1] << 8)
+            for k, b in enumerate(body[2:]):
+                mem[addr + k] = b
+        elif typ == 2:
+            entry = body[0] | (body[1] << 8)
+            break
+    segs, start, buf = {}, None, bytearray()
+    for a in sorted(mem):
+        if start is not None and a == start + len(buf):
+            buf.append(mem[a])
+        else:
+            if start is not None:
+                segs[start] = bytes(buf)
+            start, buf = a, bytearray([mem[a]])
+    if start is not None:
+        segs[start] = bytes(buf)
+    return segs, entry
