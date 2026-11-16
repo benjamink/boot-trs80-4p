@@ -1,6 +1,6 @@
 """A Python stand-in for fujinet-nio's DiskDevice, spoken over FujiBus/SLIP, for testing the Z80 client."""
-from trs80 import fujibus as fb
-from trs80 import niodisk as nd
+from fujinet import fujibus as fb
+from fujinet import niodisk as nd
 
 OK, DEVICE_NOT_FOUND, INVALID_REQUEST, DEVICE_BUSY, NOT_READY, IO_ERROR, TIMEOUT, INTERNAL, UNSUPPORTED = range(9)
 ERR_NOT_MOUNTED, ERR_OUT_OF_RANGE, ERR_READ_ONLY, ERR_FILE_NOT_FOUND = 10, 12, 11, 4

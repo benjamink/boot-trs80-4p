@@ -68,5 +68,5 @@ baud, 8O1) directly; interrupts are off while they run.
 Example: `FMOUNT :1 sd0:/disks/work.img SS=256`. Images must be raw 256-byte-sector files (LBA = cylinder*18 +
 sector); NIO has no DMK/JV3 support yet. These commands manage what the FujiNet has mounted. Until the LS-DOS
 serial disk driver exists (plan phase 2) LS-DOS cannot read a mounted drive: the commands are verified in the
-Z80 interpreter and against a real fujinet-nio on a PC (`tools/cli_live.py`), not yet on the 4P itself.
-Unknown on hardware: whether LS-DOS passes the command line in its original case (URIs are case-sensitive).
+Z80 interpreter and against a real fujinet-nio on a PC (`fujinet/cli_live.py`), not yet on the 4P itself.
+The code lives in `fujinet/` (see its README). Unknown on hardware: whether LS-DOS passes the command line in its original case (URIs are case-sensitive).

@@ -120,8 +120,8 @@ Replace the pty with `/dev/ttyUSB0` (null-modem to the 4P) to talk to the real m
 (parity comes from `fujinet.yaml`, not yet checked for odd parity).
 - NIO's own Python tool (`scripts/fujinet`, `uv`-managed venv) works against it: `fuji info`, `disk mount --slot 1 --type raw --sector-size 256 host:/images/ls631.img`, `disk info`, `disk read-sector`.
 - **Our LS-DOS image served as a raw 256-byte-sector file** (LBA = cylinder*18 + sector, 720 sectors) mounts fine and sectors compare equal to the DMK source.
-- **Our reference codec** (`trs80/fujibus.py`, `trs80/niodisk.py`) agrees with the live NIO, including its error answers (read past end: status 2 InvalidRequest, DiskError 12 OutOfRange).
-- **Our Z80 client** (`z80/nioclient.asm`, in the Z80 interpreter, UART bridged to the pty by `tools/nio_live_check.py`) read 9 sectors correctly, got the right
+- **Our reference codec** (`fujinet/fujibus.py`, `fujinet/niodisk.py`) agrees with the live NIO, including its error answers (read past end: status 2 InvalidRequest, DiskError 12 OutOfRange).
+- **Our Z80 client** (`fujinet/z80/nioclient.asm`, in the Z80 interpreter, UART bridged to the pty by `fujinet/nio_live_check.py`) read 9 sectors correctly, got the right
   refusal past the end, and wrote a pattern with C0/DB bytes to the last sector, read it back identical and restored it. Emulator tests (16, with fault injection) cover
   checksum errors, lost answers, retries, descriptors, oversize answers and noise; four deliberate mutations of the asm were each caught by the tests.
 

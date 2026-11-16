@@ -1,7 +1,7 @@
 ; nioclient.asm -- fujinet-nio client for the TRS-80 Model 4P: FujiBus packets in SLIP frames over the
 ; UART (EAh status, EBh data), plus the DiskDevice calls an LS-DOS driver / CONFIG needs.
 ; Protocol: fujinet-nio docs/protocol_reference.md and docs/disk_device_protocol.md (GPL-3.0 project).
-; The reference implementation of the wire format is trs80/fujibus.py + trs80/niodisk.py; the tests run this
+; The reference implementation of the wire format is fujinet/fujibus.py + fujinet/niodisk.py; the tests run this
 ; code in the Z80 interpreter against it.
 ;
 ; The UART must already be set up (19200 baud, 8 bits, odd parity, 1 stop): the ROM loader does it for a

@@ -1,0 +1,18 @@
+# Top Tier (Focused, Primary Support) - Largest user-base gets primary focus
+
+- BBC
+- Atari 
+- Apple II 
+- C64
+- CoCo (?)
+- MS-DOS (?)
+
+# Mid Tier (Active Development - Beta) - Popular & interesting but smaller user-base
+
+- Amiga 
+- Palm 
+- ??? 
+
+# Project Tier - Pet projects, experiments, prototype/PoC
+
+- TRS-80 (CP/M, DOS)

@@ -94,8 +94,8 @@ Each phase ends with: tests (emulator-based where possible), README section, com
 Owner's point: without CONFIG there must be CLI tools. nio-core-apps already defines the set (`fls fmount fumount
 fdrive fhost fin fout fboot fapp`); the 4P versions follow the same names and meaning.
 
-Done (2026-11-16), as LS-DOS `/CMD` programs at 3000h built from `z80/fcli.asm` + `z80/nioclib.asm`, tested in the
-Z80 interpreter (`tests/test_cli_emulated.py`) and live against fujinet-nio (`tools/cli_live.py`):
+Done (2026-11-16), as LS-DOS `/CMD` programs at 3000h built from `fujinet/z80/fcli.asm` + `fujinet/z80/nioclib.asm`, tested in the
+Z80 interpreter (`tests/test_cli_emulated.py`) and live against fujinet-nio (`fujinet/cli_live.py`):
 `FLS` (FileDevice ListDirectory, text mode), `FMOUNT :d uri [RO|RW] [SS=n]`, `FUMOUNT :d`, `FDRIVE` (ListMounts).
 Drive `:d` = DiskDevice slot d+1. They are added to the boot image by `tools/make_boot_image.py`, which removes
 `HELP/CMD` and `DOS/HLP` because the base disk is otherwise full.
