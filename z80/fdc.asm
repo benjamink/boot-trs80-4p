@@ -30,6 +30,7 @@ PB_ERR    equ PB+6     ; 0 ok, 1 write not armed (nothing touched), 2 timeout (a
 PB_ARMED  equ PB+7     ; A5h = next write_track is allowed; cleared by write_track
 PB_SPIN   equ PB+8     ; nonzero: wait ~0.4 s for the motor first
 PB_DEL    equ PB+10    ; bit 0 = write the DELETED data mark F8 (LS-DOS directory sectors); other bits ignored
+PB_NOVERIFY equ PB+11 ; nonzero: seek without verify (13h) -- probing past the last track must not search for an ID
 PB_ARMED_S equ PB+9    ; A5h = write_sector is allowed; cleared only by disarm/init
 
 F_CMD     equ 0F0h
@@ -140,8 +141,12 @@ restore:  call select
 seek:     call select
           ld a,(PB_TRACK)
           out (F_DAT),a
-          ld a,17h
-          out (F_CMD),a
+          ld a,17h                 ; seek + verify: 15 ms head settle
+          ld hl,PB_NOVERIFY
+          bit 0,(hl)
+          jr z,sk_go
+          ld a,13h
+sk_go:    out (F_CMD),a
           jp finish
 
 read_addr: call select

@@ -7,6 +7,7 @@ from tests.z80emu import Z80, load_hex
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PB = 0x9F00
 P_LATCH, P_TRACK, P_SECTOR, P_BUF, P_STATUS, P_ERR, P_ARMED, P_SPIN = (PB + i for i in (0, 1, 2, 3, 5, 6, 7, 8))
+PB_NOVERIFY = PB + 11
 P_ARMED_S = PB + 9
 P_DEL = PB + 10
 ENTRY = dict(init=0x8000, restore=0x8003, seek=0x8006, read_addr=0x8009,
@@ -41,6 +42,7 @@ class FdcRoutineTests(unittest.TestCase):
         buf = params.get("buf", 0xC000)
         m[P_BUF], m[P_BUF + 1] = buf & 255, buf >> 8
         m[P_SPIN] = params.get("spin", 0)
+        m[PB_NOVERIFY] = params.get("noverify", 0)
         self.cpu.sp = 0x7000
         self.cpu.run_call(ENTRY[name])
         return m[P_STATUS], m[P_ERR]
@@ -74,6 +76,10 @@ class FdcRoutineTests(unittest.TestCase):
         # Writing right after a bare step is a suspect for sporadic unreadable sectors.
         self.call("seek", track=17)
         self.assertEqual(self.fdc.commands, [0x17])
+
+    def test_seek_without_verify_is_available_for_probing_past_the_last_track(self):
+        self.call("seek", track=17, noverify=1)
+        self.assertEqual(self.fdc.commands, [0x13])
 
     def test_read_addr_returns_six_bytes(self):
         self.fdc.phys = 5

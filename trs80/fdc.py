@@ -52,9 +52,10 @@ class Fdc:
         self.mon.exec(ENTRY["init"])
         self._homed.clear()
 
-    def _call(self, name, lat=0, track=0, sector=0, buf=SECTOR_BUF, spin=False):
+    def _call(self, name, lat=0, track=0, sector=0, buf=SECTOR_BUF, spin=False, noverify=False):
         self.mon.write_mem(PB, bytes([lat, track, sector, buf & 255, buf >> 8]))
         self.mon.write_mem(PB + 8, bytes([1 if spin else 0]))
+        self.mon.write_mem(PB + 11, bytes([1 if noverify else 0]))
         self.mon.exec(ENTRY[name])
         status, err = self.mon.read_mem(PB + 5, 2)
         self.last_status = status
@@ -89,7 +90,7 @@ class Fdc:
         max_track = -1
         for t in (79, 39):
             self._call("restore", latch(drive, 0, density))      # register and head must agree before a seek
-            self._call("seek", latch(drive, 0, density), track=t)
+            self._call("seek", latch(drive, 0, density), track=t, noverify=True)
             _, err = self._call("read_addr", latch(drive, 0, density))
             got = self.mon.read_mem(SECTOR_BUF, 1)[0]
             if not err and not self.last_status & (ST_RNF | ST_CRC) and got == t:
