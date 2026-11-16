@@ -228,8 +228,34 @@ class BaseImageTests(unittest.TestCase):
         self.addCleanup(os.unlink, self.new)
         self.ok = ["--drive", "0", "--confirm", "ERASE DRIVE 0"]
 
+    def holding(self, path, damage=None):
+        """A fake floppy that really holds the DMK at `path` (optionally with one sector changed)."""
+        with open(path, "rb") as f:
+            img = dmk.parse_dmk(f.read())
+        fake = FakeFdc()
+        for c in range(img.tracks):
+            for t in img.get(c, 0).sectors:
+                fake.disk[(c, 0, t.num)] = bytes(t.data)
+        if damage:
+            fake.disk[damage] = bytes([fake.disk[damage][0] ^ 0xFF]) + fake.disk[damage][1:]
+        return fake
+
+    def test_base_that_the_floppy_does_not_hold_is_refused_before_asking_to_erase(self):
+        # e.g. trs80put changed a file since the base was written: skipped tracks would keep stale data
+        asked = []
+        rc = self.run_cli(["--image", self.new, "--base", self.img, "--drive", "0"], fake=self.holding(self.img, damage=(2, 0, 1)),
+                          input_fn=lambda p: asked.append(p) or "ERASE DRIVE 0", isatty=True)
+        self.assertEqual((rc, self.fake.tracks_written, asked), (2, [], []))
+        self.assertIn("C2", self.out.getvalue())
+        self.assertIn("without --base", self.out.getvalue())
+
+    def test_base_on_an_unformatted_or_unreadable_floppy_is_refused(self):
+        fake = FakeFdc()                                               # reads fail: nothing is there
+        rc = self.run_cli(["--image", self.new, "--base", self.img] + self.ok, fake=fake)
+        self.assertEqual((rc, fake.tracks_written), (2, []))
+
     def test_only_changed_tracks_are_written(self):
-        rc = self.run_cli(["--image", self.new, "--base", self.img] + self.ok)
+        rc = self.run_cli(["--image", self.new, "--base", self.img] + self.ok, fake=self.holding(self.img))
         self.assertEqual(rc, 0)
         self.assertEqual(self.fake.tracks_written, [(1, 0)])
         self.assertIn("1 of 3 tracks differ", self.out.getvalue())
@@ -246,7 +272,8 @@ class BaseImageTests(unittest.TestCase):
         self.assertEqual((rc, self.fake.tracks_written if hasattr(self, "fake") else []), (2, []))
 
     def test_still_requires_the_erase_confirmation(self):
-        rc = self.run_cli(["--image", self.new, "--base", self.img, "--drive", "0"], input_fn=lambda p: "no", isatty=True)
+        rc = self.run_cli(["--image", self.new, "--base", self.img, "--drive", "0"], fake=self.holding(self.img),
+                          input_fn=lambda p: "no", isatty=True)
         self.assertNotEqual(rc, 0)
         self.assertEqual(self.fake.tracks_written, [])
 

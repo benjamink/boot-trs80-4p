@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Add SERIAL/CMD (the serial link, run from the LS-DOS prompt) and the FujiNet commands FMOUNT, FUMOUNT,
-FDRIVE to an LS-DOS disk image.
+FDRIVE, FLS and FUJIDRV (the resident serial disk driver) to an LS-DOS disk image; HELP/CMD and DOS/HLP are dropped to make room.
 
   tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out images/boot.dsk
 
