@@ -77,7 +77,7 @@ parses them). Adding native DMK support would be a firmware contribution.
    answers "Found Baud Rate", then 0xFF, then the load module at 19200 8O1; see `trs80boot.py`). It would need a new boot-service/transport mode in NIO (a contribution), or a
    small PC/bridge to do the first stage. This is now the main gap on the firmware side.
 3. **Floppy-less LS-DOS start-up:** unchanged; nothing in these repos helps. It is our own problem (see the plan's A/B/C options).
-4. **Licensing:** DECIDED by the owner (2026-11-16): GPL-3.0 is fine; this work is meant to be merged into or supplement the upstream fujinet-nio project (the owner is a contributor), so deriving from their client/driver code is allowed. Original finding: GPL-3.0 across the NIO repos (see above).
+4. **Licensing:** DECIDED by the owner (2026-11-16, confirmed again directly: GPL-3.0 is fine and the fujinet/ work will become part of the upstream project, not the owner's own); this work is meant to be merged into or supplement the upstream fujinet-nio project (the owner is a contributor), so deriving from their client/driver code is allowed. Original finding: GPL-3.0 across the NIO repos (see above).
 5. **What the firmware must provide:** mount/read/write by LBA already exists. Missing: a way to deliver the 4P loader stage and (optionally) DMK images.
 
 ## Speed estimate for the RS-232-only path
