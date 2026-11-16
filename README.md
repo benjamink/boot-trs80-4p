@@ -66,12 +66,12 @@ baud, 8O1) directly; interrupts are off while they run.
 | `FDRIVE` | list what is mounted, one line per drive |
 
 Example: `FMOUNT :1 sd0:/disks/work.img SS=256`. Images must be raw 256-byte-sector files (LBA = cylinder*18 +
-sector); NIO has no DMK/JV3 support yet. These commands manage what the FujiNet has mounted. Until the LS-DOS
-serial disk driver exists (plan phase 2) LS-DOS cannot read a mounted drive: the commands are verified in the
-Z80 interpreter and against a real fujinet-nio on a PC (`fujinet/cli_live.py`), not yet on the 4P itself.
+sector); NIO has no DMK/JV3 support yet. These commands manage what the FujiNet has mounted. `FUJIDRV :d` installs the
+serial disk driver on a drive (above HIGH$, from `FUJIDRV/CMD`); then `FMOUNT :d uri SS=256` makes the image readable there. Verified on a real 4P with a real
+fujinet-nio on a PC (see the floppy-less boot section), and in the Z80 interpreter and MAME.
 The code lives in `fujinet/` (see its README). Unknown on hardware: whether LS-DOS passes the command line in its original case (URIs are case-sensitive).
 
-## Booting with no floppy (fujinet/z80/nioboot.asm) - works in MAME, not yet on hardware
+## Booting with no floppy (fujinet/z80/nioboot.asm) - works in MAME and on a real 4P with a PC-hosted fujinet-nio
 
 `nioboot` is a loader for the ROM's serial loader (hold Right Shift at reset, send it with `trs80boot.py build/nioboot.hex --entry 0x5000`).
 It reads the LS-DOS boot sector from FujiNet slot 1 (a raw 256-byte-sector image, 18 per cylinder; `trs80.lsdosfs.flat_image` makes one
@@ -79,13 +79,20 @@ from a DMK) instead of a floppy, patches the boot sector's one floppy-controller
 BOOT/SYS's drive table is loaded points drive 0 at the resident driver (`fujidrv.asm`, at E000h). LS-DOS then loads and runs entirely
 from the FujiNet. In MAME with no disk at all it reaches the date prompt in about 10 seconds, and `DIR :0` works.
 
+Checked on a real 4P (no diskette in the drive) against the real fujinet-nio POSIX build on a PC (`fujibus-rs232`, `/dev/ttyUSB0`, 19200 baud, `parity: odd` in `fujinet.yaml`): boots to `LS-DOS Ready`, `DIR :0`, `FLS`, `FUJIDRV :1`, `FMOUNT :1 host:/images/work.img SS=256`, `FDRIVE` and `DIR :1` all work. Notes from that session:
+- Send the loader with `--byte-delay 0.002` (`trs80boot.py build/nioboot.hex --entry 0x5000 --byte-delay 0.002 -y`): without it the ROM loader sometimes failed ("Error", or no start).
+- nioboot waits (screen: `Waiting for FujiNet...`) until a FujiNet answers, so fujinet-nio can be started after the loader has run.
+- The boot disk must be mounted before the 4P asks: `boot: mode: config` with `config_uri: host:/images/boot.xfd`. A raw `.img` fails with `GeometryRequired` because the boot mount has no sector-size hint; a 184,320-byte `.xfd` is recognised as 720 x 256-byte sectors. (A gap to raise upstream.) Make the image with `trs80.lsdosfs.flat_image`.
+- LS-DOS probes every enabled floppy drive at the end of start-up and an empty real drive hangs it, so nioboot disables drives 1-7 in the drive table; FUJIDRV re-enables the one it installs.
+
 HIGH$ protection: LS-DOS sets HIGH$ (kept at 040Eh in 6.3.1) after this loader has handed over, so the driver lowers it to DFFFh on every call. Checked in MAME: HIGH$ reads FFFF without this and DFFF with it.
 
 Date and time: if the FujiNet has a clock device (device 0x45), LS-DOS no longer asks for them. When the last boot sector is in, the loader fetches the
 clock and stores the date at 0033h-0035h and sets the flag at 04C3h that makes SYS0 skip the prompts. SYS0 then overwrites the time with its default, so
 the driver fetches the clock again on the first call after LS-DOS has finished initialising (HIGH$ jumps back up) and stores the time. Checked in MAME
-(date on the boot screen, `TIME` shows the fetched time). With no clock device the prompts appear as before. If your fujinet-nio has no timezone set, the
-clock reports UTC; the answer uses the device's configured timezone.
+(date on the boot screen, `TIME` shows the fetched time) and on the real 4P against the real fujinet-nio (date and time prompts skipped; the clock device answers
+with the layout assumed here). With no clock device the prompts appear as before. The time is the FujiNet's configured timezone (`clock.timezone` in
+`fujinet.yaml`, `UTC` by default), so set it to your local zone. The FujiNet exchanges stop LS-DOS's own clock for about 0.3 s per sector, so the time drifts a little under disk activity.
 
 ## Testing without the 4P: MAME
 
