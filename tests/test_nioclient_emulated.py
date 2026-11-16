@@ -8,7 +8,7 @@ from trs80 import niodisk as nd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PB, NIO_TX, NIO_RX, BUF = 0x9F00, 0xA000, 0xA300, 0xC000
-ENTRY = dict(exchange=0x8000, request=0x8003, info=0x8006, read=0x8009, write=0x800C)
+ENTRY = dict(exchange=0x8000, request=0x8003, info=0x8006, read=0x8009, write=0x800C, mount=0x800F, unmount=0x8012, list=0x8015, files=0x8018)
 
 
 @unittest.skipUnless(shutil.which("sjasmplus"), "sjasmplus not installed")
@@ -190,6 +190,94 @@ class NioClientTests(unittest.TestCase):
         self.pb(lba=7)
         self.call("read")
         self.assertEqual(self.result()["error"], 3)
+
+    # ---- mount management (FMOUNT / FUMOUNT / FDRIVE) ----
+    def mount(self, slot, uri, ro=0, ss=0):
+        m = self.cpu.mem
+        m[0xB100:0xB100 + len(uri)] = uri.encode()
+        self.pb(slot=slot)
+        m[PB + 19] = ro
+        m[PB + 20:PB + 22] = (0xB100).to_bytes(2, "little")
+        m[PB + 22:PB + 24] = len(uri).to_bytes(2, "little")
+        m[PB + 24:PB + 26] = ss.to_bytes(2, "little")
+        self.call("mount")
+
+    def test_mount_sends_the_reference_request_and_reports_geometry(self):
+        self.nio.library["host:/a.img"] = bytes(100 * 256)
+        self.mount(2, "host:/a.img", ro=1, ss=256)
+        want = nd.mount_request(2, "host:/a.img", readonly=True, sector_size_hint=256)
+        self.assertEqual(bytes(self.nio.requests[-1].payload), want)
+        m = self.cpu.mem
+        self.assertEqual((self.result()["error"], m[PB + 12] & 3, m[PB + 13] | m[PB + 14] << 8,
+                          int.from_bytes(m[PB + 15:PB + 19], "little")), (0, 3, 256, 100))
+
+    def test_mount_of_a_missing_image_reports_the_disk_error(self):
+        self.mount(1, "host:/nope.img")
+        r = self.result()
+        self.assertEqual((r["error"], r["disk_error"]), (6, 4))
+
+    def test_unmount(self):
+        self.pb(slot=1)
+        self.call("unmount")
+        self.assertEqual(self.result()["error"], 0)
+        self.assertNotIn(1, self.nio.slots)
+        self.pb(slot=1)
+        self.call("unmount")                                            # nothing mounted any more
+        r = self.result()
+        self.assertEqual((r["error"], r["disk_error"]), (6, 10))
+
+    def test_list_mounts_returns_the_text_and_the_more_flag(self):
+        for n in (1, 2, 3):
+            self.nio.library["host:/d%d.img" % n] = bytes(256)
+            self.mount(n, "host:/d%d.img" % n)
+        self.pb(buf=0xC000)
+        self.cpu.mem[PB + 26:PB + 28] = (0).to_bytes(2, "little")
+        self.call("list")
+        m = self.cpu.mem
+        n = m[PB + 9] | m[PB + 10] << 8
+        self.assertEqual(bytes(m[0xC000:0xC000 + n]).decode(), "0: AUTO host:/d1.img\n1: AUTO host:/d2.img\n2: AUTO host:/d3.img\n")
+        self.assertEqual((self.result()["error"], m[PB + 28], m[PB + 29] | m[PB + 30] << 8), (0, 0, 3))
+
+    def test_list_mounts_pages_when_the_text_does_not_fit(self):
+        for n in (1, 2, 3):
+            self.nio.library["host:/d%d.img" % n] = bytes(256)
+            self.mount(n, "host:/d%d.img" % n)
+        self.pb(buf=0xC000)
+        m = self.cpu.mem
+        m[PB + 26:PB + 28] = (1).to_bytes(2, "little")                  # resume at entry 1
+        self.call("list")
+        self.assertTrue(bytes(m[0xC000:0xC000 + (m[PB + 9] | m[PB + 10] << 8)]).startswith(b"1: AUTO"))
+        self.assertEqual(self.nio.requests[-1].payload[6:8], b"\x01\x00")
+
+
+    def files(self, uri, start=0):
+        m = self.cpu.mem
+        m[0xB100:0xB100 + len(uri)] = uri.encode()
+        self.pb(buf=0xC000)
+        m[PB + 20:PB + 22] = (0xB100).to_bytes(2, "little")
+        m[PB + 22:PB + 24] = len(uri).to_bytes(2, "little")
+        m[PB + 26:PB + 28] = start.to_bytes(2, "little")
+        self.call("files")
+        n = m[PB + 9] | m[PB + 10] << 8
+        return bytes(m[0xC000:0xC000 + n]).decode(), m[PB + 28], m[PB + 29] | m[PB + 30] << 8
+
+    def test_directory_listing_sends_the_reference_request_and_returns_the_lines(self):
+        self.nio.dirs["sd0:/"] = ["d     - Nov 16 09:00 games/", "-   720 Nov 16 09:00 a.img"]
+        text, more, count = self.files("sd0:/")
+        self.assertEqual(bytes(self.nio.requests[-1].payload), nd.list_directory_request("sd0:/"))
+        self.assertEqual((text, more, count), ("d     - Nov 16 09:00 games/\n-   720 Nov 16 09:00 a.img\n", 0, 2))
+
+    def test_directory_listing_pages_and_resumes(self):
+        self.nio.dirs["sd0:/"] = ["-  %d Nov 16 09:00 file-with-a-fairly-long-name-%d.img" % (i, i) for i in range(10)]
+        first, more, count = self.files("sd0:/")
+        self.assertEqual((more, count < 10), (1, True))
+        second, _, _ = self.files("sd0:/", start=count)
+        self.assertTrue(second.startswith("-  %d " % count))
+
+    def test_missing_directory_is_a_refusal_with_the_nio_status(self):
+        self.files("sd0:/nowhere")
+        r = self.result()
+        self.assertEqual((r["error"], r["status"]), (6, 5))             # IOError
 
 
 if __name__ == "__main__":

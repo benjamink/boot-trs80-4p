@@ -3,11 +3,14 @@ from trs80 import fujibus as fb
 from trs80 import niodisk as nd
 
 OK, DEVICE_NOT_FOUND, INVALID_REQUEST, DEVICE_BUSY, NOT_READY, IO_ERROR, TIMEOUT, INTERNAL, UNSUPPORTED = range(9)
-ERR_NOT_MOUNTED, ERR_OUT_OF_RANGE, ERR_READ_ONLY = 10, 12, 11
+ERR_NOT_MOUNTED, ERR_OUT_OF_RANGE, ERR_READ_ONLY, ERR_FILE_NOT_FOUND = 10, 12, 11, 4
 
 
 class FakeNio:
     def __init__(self):
+        self.dirs = {}                        # uri -> text lines of a directory listing
+        self.library = {}                     # uri -> image bytes that Mount can open
+        self.uris = {}                        # slot -> (uri, readonly)
         self.slots = {}                       # slot -> [bytearray image, readonly]
         self.requests = []                    # decoded request packets, in arrival order
         self.mangle = []                      # queue of callables(response_wire) -> wire (fault injection); None = pass
@@ -17,7 +20,21 @@ class FakeNio:
 
     def _disk(self, p):
         pl = p.payload
+        if p.command == nd.LIST_MOUNTS:
+            return self._list(pl)
         slot = pl[1]
+        if p.command == nd.MOUNT:
+            uri = bytes(pl[8:8 + (pl[6] | pl[7] << 8)]).decode()
+            if uri not in self.library:
+                return INVALID_REQUEST, bytes([1, ERR_FILE_NOT_FOUND])
+            self.mount(slot, self.library[uri], readonly=bool(pl[2] & 1))
+            self.uris[slot] = (uri, bool(pl[2] & 1))
+            return OK, nd.info_response(slot, 256, len(self.library[uri]) // 256, readonly=bool(pl[2] & 1))[:12]
+        if p.command == nd.UNMOUNT:
+            if slot not in self.slots:
+                return NOT_READY, bytes([1, ERR_NOT_MOUNTED])
+            del self.slots[slot]; self.uris.pop(slot, None)
+            return OK, bytes([1, 0, 0, 0, slot])
         if slot not in self.slots:
             return NOT_READY, bytes([1, ERR_NOT_MOUNTED])
         img, ro = self.slots[slot]
@@ -36,11 +53,44 @@ class FakeNio:
             return OK, bytes([1, 0, 0, 0, slot]) + pl[2:6] + (256).to_bytes(2, "little")
         return UNSUPPORTED, b""
 
+    def _files(self, pl):
+        n = pl[1] | pl[2] << 8
+        uri = bytes(pl[3:3 + n]).decode()
+        start, room = pl[3 + n] | pl[4 + n] << 8, pl[5 + n] | pl[6 + n] << 8
+        if uri not in self.dirs:
+            return IO_ERROR, b""
+        lines = [ln.encode() + b"\n" for ln in self.dirs[uri]][start:]
+        out, k = b"", 0
+        for ln in lines:
+            if len(out) + len(ln) > room:
+                break
+            out += ln; k += 1
+        return OK, bytes([1, 4 | (k < len(lines))]) + (0).to_bytes(2, "little") + start.to_bytes(2, "little") \
+            + k.to_bytes(2, "little") + len(out).to_bytes(2, "little") + out
+
+    def _list(self, pl):
+        start, room = pl[6] | pl[7] << 8, pl[8] | pl[9] << 8
+        lines = [("%d: %s %s\n" % (slot - 1, "RO" if ro else "AUTO", uri)).encode()
+                 for slot, (uri, ro) in sorted(self.uris.items())][start:]
+        out, n = b"", 0
+        for ln in lines:
+            if len(out) + len(ln) > room:
+                break
+            out += ln; n += 1
+        more = n < len(lines)
+        return OK, bytes([1, 2 | more]) + (0).to_bytes(2, "little") + start.to_bytes(2, "little") \
+            + n.to_bytes(2, "little") + len(out).to_bytes(2, "little") + out
+
     def handle(self, raw):
         """One decoded request frame -> the wire bytes of the answer (possibly mangled/dropped)."""
         p = fb.parse_packet(raw)
         self.requests.append(p)
-        status, payload = self._disk(p) if p.device == nd.DEVICE else (DEVICE_NOT_FOUND, b"")
+        if p.device == nd.DEVICE:
+            status, payload = self._disk(p)
+        elif p.device == nd.FILE_DEVICE and p.command == nd.FILE_LIST_DIRECTORY:
+            status, payload = self._files(p.payload)
+        else:
+            status, payload = DEVICE_NOT_FOUND, b""
         wire = fb.slip_encode(fb.build_response(p.device, p.command, status, payload))
         if self.mangle:
             f = self.mangle.pop(0)

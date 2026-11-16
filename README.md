@@ -33,7 +33,8 @@ There is deliberately no `--yes` flag.
 monitor with a small front end (sets the UART to 19200 baud, 8O1, then waits), and the files it receives
 are written by LS-DOS itself.
 
-1. Build the image and write only the two tracks that changed (about 1-2 minutes). This assumes the floppy
+1. Build the image and write only the tracks that changed (the image also gains the FujiNet commands below and
+   loses `HELP/CMD` and `DOS/HLP` to make room; `--keep-help` keeps them if there is room). This assumes the floppy
    still holds exactly `L631NEW.DSK` as written earlier:
 
        make
@@ -50,3 +51,22 @@ are written by LS-DOS itself.
 
 While `SERIAL` runs, the 4P's interrupts are off (the clock and keyboard are idle); it ends with `--exit`
 or reset. To change the disk later, keep the image file you last wrote and pass it as `--base`.
+
+## FujiNet commands under LS-DOS (FMOUNT, FUMOUNT, FDRIVE, FLS)
+
+For booting straight to LS-DOS rather than into CONFIG. They mirror the `F*` utilities in nio-core-apps and are
+on the disk made by `tools/make_boot_image.py`. Each talks to a fujinet-nio on the 4P's serial port (19200
+baud, 8O1) directly; interrupts are off while they run.
+
+| Command | What it does |
+|---|---|
+| `FLS [uri]` | list a directory on the FujiNet's storage (default `sd0:/`; also `host:/`, `tnfs://server/dir`) |
+| `FMOUNT :d uri [RO\|RW] [SS=bytes]` | mount an image on FujiNet slot d+1 (LS-DOS drive `:d`, 0-7) |
+| `FUMOUNT :d` | release that drive's image |
+| `FDRIVE` | list what is mounted, one line per drive |
+
+Example: `FMOUNT :1 sd0:/disks/work.img SS=256`. Images must be raw 256-byte-sector files (LBA = cylinder*18 +
+sector); NIO has no DMK/JV3 support yet. These commands manage what the FujiNet has mounted. Until the LS-DOS
+serial disk driver exists (plan phase 2) LS-DOS cannot read a mounted drive: the commands are verified in the
+Z80 interpreter and against a real fujinet-nio on a PC (`tools/cli_live.py`), not yet on the 4P itself.
+Unknown on hardware: whether LS-DOS passes the command line in its original case (URIs are case-sensitive).
