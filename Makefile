@@ -3,7 +3,7 @@ build/%.hex: z80/%.asm
 	@mkdir -p build
 	sjasmplus --nologo --msg=err --lst=build/$*.lst --sym=build/$*.sym --hex=$@ $<
 
-all: build/mon.hex
+all: build/mon.hex build/dosio.hex build/serialcmd.hex
 clean:
 	rm -rf build
 .PHONY: all clean

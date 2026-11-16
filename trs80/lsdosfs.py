@@ -169,7 +169,7 @@ def _hit_index(i):
     return (i % 8) * 32 + i // 8
 
 
-def _split(name):
+def split_name(name):
     """'NAME/EXT' -> (8-byte name, 3-byte ext), space padded and upper-cased; ValueError if not a valid LS-DOS name."""
     base, _, ext = name.upper().partition("/")
     ok = lambda t, n: len(t) <= n and all(c.isalnum() and c.isascii() for c in t)
@@ -189,7 +189,7 @@ def _slot(g, i):
 
 
 def _find(g, name):
-    base, ext = _split(name)
+    base, ext = split_name(name)
     for i, e in enumerate(_entries(g)):
         if _live(e) and bytes(e[5:16]) == base + ext:
             return i, e
@@ -240,7 +240,7 @@ def delete_file(img, name):
 
 def add_file(img, name, data):
     """Returns a modified copy with the file added (ordinary, unprotected, blank passwords)."""
-    base, ext = _split(name)
+    base, ext = split_name(name)
     out = _copy(img)
     g = _Geometry(out)
     if _find(g, name)[1] is not None:
