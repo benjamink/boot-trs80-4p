@@ -3,13 +3,16 @@
 Opt-in like test_mame_integration:  MAME_TESTS=1 python3 -m unittest tests.test_mame_config
 Needs z88dk and the nio-config checkout (NIO_CONFIG_DIR, default ../fujinet-nio-workspace/repos/nio-config).
 """
-import os, shutil, subprocess, tempfile, time, unittest
+import os, select, shutil, subprocess, tempfile, threading, time, tty, unittest
 
-from tests.test_mame_integration import BASE, ROMS, HAVE
+from fujinet import fujibus as fb
+from tests.fakenio import FakeNio
+from tests.test_mame_integration import BASE, ROMS, HAVE, serve
 from tools.make_boot_image import make_boot_image
 from tools.mame4p import Mame4P
 from tools.zcc_cmd import bin_to_lmf
 from trs80 import dmk, lsdosfs
+from trs80.lmf import build_lmf, parse_hex
 
 NIO_CONFIG = os.environ.get("NIO_CONFIG_DIR", os.path.expanduser("~/dev/fujinet-nio-workspace/repos/nio-config"))
 TRS80 = os.path.join(NIO_CONFIG, "trs80")
@@ -40,9 +43,27 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("LS-DOS Ready", 30)
         time.sleep(1)
 
-    def build(self, name):
+    def build(self, name, with_client=False):
+        """/CMD for trs80/build/<name>.bin; with_client also carries nioclient (8000h), as CONFIG/CMD does."""
         subprocess.run(["make", "-C", TRS80, "build/%s.bin" % name], check=True, stdout=subprocess.DEVNULL)
-        return bin_to_lmf(os.path.join(TRS80, "build", name + ".bin"))
+        with open(os.path.join(TRS80, "build", name + ".bin"), "rb") as f:
+            segs = {0x3000: f.read()}
+        if with_client:
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            subprocess.run(["make", "-C", root, "build/nioclient.hex"], check=True, stdout=subprocess.DEVNULL)
+            client, _ = parse_hex(os.path.join(root, "build", "nioclient.hex"))
+            segs.update(client)
+        assert max(a + len(d) for a, d in segs.items() if a == 0x3000) <= 0x8000, "program overlaps nioclient"
+        return build_lmf(segs, 0x3000, block=240)
+
+    def serve_nio(self, nio):
+        """Answer FujiBus requests from the 4P's serial port with the fake NIO."""
+        fd = os.open(self.mame.pty, os.O_RDWR | os.O_NOCTTY)
+        tty.setraw(fd)
+        stop = threading.Event()
+        t = threading.Thread(target=serve, args=(fd, nio, stop), daemon=True)
+        t.start()
+        self.addCleanup(lambda: (stop.set(), t.join(2), os.close(fd)))
 
     def test_hello_from_c_runs_under_ls_dos(self):
         self.boot({"HELLO/CMD": self.build("hello")})
@@ -63,6 +84,23 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("Hi there", 10)
         self.mame.press("Break")
         self.mame.wait_for("LS-DOS Ready", 30)
+
+    def test_portable_fnsvc_lists_a_directory_through_the_fake_nio(self):
+        nio = FakeNio()
+        nio.dirs["sd0:/"] = ["-  720 Nov 16 09:00 Game.img", "d    0 Nov 16 09:00 utils/"]
+        self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})
+        self.serve_nio(nio)
+        self.mame.type("NIOSELF\n")
+        self.mame.wait_for("OK", 60)
+        screen = self.mame.screen()
+        self.assertIn("D utils", screen)
+        self.assertIn("F Game.img", screen)
+
+    def test_unanswered_request_returns_to_ls_dos_with_an_error(self):
+        self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})   # nobody answers on the line
+        self.mame.type("NIOSELF\n")
+        self.mame.wait_for("E3", 120)                                 # FNSVC_ERR_TRANSPORT
+        self.mame.wait_for("LS-DOS Ready", 60)
 
 
 if __name__ == "__main__":
