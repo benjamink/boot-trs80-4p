@@ -68,7 +68,13 @@ nio_exchange_go:
 ne_try:   call flush_rx
           call send_packet
           call recv_packet
-          ret nc
+          jr c,ne_fail
+          push af
+          xor a
+          ld (v_xerr),a            ; the last exchange got through
+          pop af
+          ret
+ne_fail:  ld (v_xerr),a            ; ... or not: the driver stops hammering a missing FujiNet (see fujidrv.asm)
           cp 5
           scf
           ret z                    ; unsupported descriptor: retrying cannot help
@@ -296,6 +302,7 @@ rp_baddesc: ld a,5
           ret
 
 v_tries:  db 0
+v_xerr:   db 0                     ; transport error of the last exchange, 0 = it got through
 rx_ck:    db 0
 
 ; ---------------------------------------------------------------------------------------------------
