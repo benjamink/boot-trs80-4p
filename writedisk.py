@@ -62,7 +62,8 @@ def _verify_track(fdc, drive, track):
     return None
 
 
-def write_image(fdc, image, drive, progress=print, retries=2):
+def write_image(fdc, image, drive, progress=print, retries=2, only=None):
+    """only: optional set of (cyl, side) -- write just those tracks."""
     if drive not in fdc.probed:
         raise RuntimeError("probe the drive before writing")
     for cyl in range(image.tracks):                    # refuse up front, before the disk is touched
@@ -74,6 +75,8 @@ def write_image(fdc, image, drive, progress=print, retries=2):
     for cyl in range(image.tracks):
         for side in range(image.sides):
             track = image.get(cyl, side)
+            if only is not None and (cyl, side) not in only:
+                continue
             if not track.present or not track.sectors:
                 skipped.append(f"C{cyl} H{side}")
                 continue
@@ -88,6 +91,11 @@ def write_image(fdc, image, drive, progress=print, retries=2):
             progress(f"cylinder {cyl} side {side}: {len(track.sectors)} sectors written and verified")
     if skipped:
         progress(f"skipped {len(skipped)} tracks with no sectors in the image: {', '.join(skipped)}")
+
+
+def _layout(track):
+    """Everything about a track that matters when writing it: sector order, IDs, marks and data."""
+    return [(s.cyl, s.side, s.num, s.size, s.dam, s.data) for s in track.sectors]
 
 
 def _default_open_fdc(port):
@@ -107,6 +115,9 @@ def main(argv=None, *, input_fn=input, open_fdc=_default_open_fdc, out=print, is
     ap.add_argument("-p", "--port", default="/dev/ttyUSB0")
     ap.add_argument("--dry-run", action="store_true", help="parse and plan only; never opens the serial port")
     ap.add_argument("--probe-only", action="store_true", help="read-only drive check")
+    ap.add_argument("--base", metavar="OLD.DSK",
+                    help="the image the floppy already holds exactly (e.g. what you wrote last time): only tracks "
+                         "that differ from it are rewritten, which takes minutes instead of 20")
     ap.add_argument("--confirm", metavar="TEXT", help="for scripts: must equal 'ERASE DRIVE <n>'")
     a = ap.parse_args(argv)
     if isatty is None:
@@ -118,6 +129,20 @@ def main(argv=None, *, input_fn=input, open_fdc=_default_open_fdc, out=print, is
             if image.get(c, s).present and image.get(c, s).sectors]
     last_cyl = max(c for c, _ in todo) if todo else -1
     out(f"image {a.image}: {len(todo)} tracks to write, cylinders 0-{last_cyl}")
+    only = None
+    if a.base:
+        with open(a.base, "rb") as f:
+            base = parse_dmk(f.read())
+        if (base.tracks, base.sides) != (image.tracks, image.sides):
+            out(f"refusing: --base has {base.tracks} cylinders x {base.sides} sides, the image {image.tracks} x {image.sides}")
+            return 2
+        only = {(c, s) for c, s in todo if _layout(base.get(c, s)) != _layout(image.get(c, s))}
+        out(f"{len(only)} of {len(todo)} tracks differ from {a.base}: "
+            + (", ".join(f"C{c}" for c, _ in sorted(only)) or "none")
+            + ". This assumes the floppy holds exactly that image.")
+        if not only:
+            out("nothing to write")
+            return 0
     if a.dry_run:
         return 0
 
@@ -136,7 +161,7 @@ def main(argv=None, *, input_fn=input, open_fdc=_default_open_fdc, out=print, is
         out("not confirmed; nothing was written")
         return 2
     try:
-        write_image(fdc, image, a.drive, progress=out)
+        write_image(fdc, image, a.drive, progress=out, only=only)
     except KeyboardInterrupt:
         out(f"\ninterrupted: the floppy in drive {a.drive} is partly written and will not boot. "
             "Run this again to rewrite it from track 0.")

@@ -28,6 +28,15 @@ def image_file(**kw):
     return f.name
 
 
+def changed_image_file(tracks=3, change=(1,)):
+    """Like image_file() but cylinders in `change` carry different data."""
+    f = tempfile.NamedTemporaryFile(suffix=".dmk", delete=False)
+    f.write(make_dmk([make_track([sector(c, 0, n, fill=(0x11 if c in change else 0xF5 + n % 3)) for n in (0, 2, 1, 3)])
+                      if s == 0 else make_track([]) for c in range(tracks) for s in (0, 1)], tracks=tracks, sides=2))
+    f.close()
+    return f.name
+
+
 class ConfirmTests(unittest.TestCase):
     info = DriveInfo(0, True, 39, 1, "x")
 
@@ -204,6 +213,47 @@ class CliTests(unittest.TestCase):
         self.assertIn("will not boot", text)
         self.assertIn("track 0", text)
         self.assertFalse(fake.armed)
+
+
+class BaseImageTests(unittest.TestCase):
+    """--base: the floppy already holds BASE, so only tracks that differ from it are rewritten."""
+    run_cli = CliTests.run_cli
+
+    def setUp(self):
+        self.img = image_file()
+        self.addCleanup(os.unlink, self.img)
+        self.out = io.StringIO()
+        self.opened = []
+        self.new = changed_image_file(change=(1,))
+        self.addCleanup(os.unlink, self.new)
+        self.ok = ["--drive", "0", "--confirm", "ERASE DRIVE 0"]
+
+    def test_only_changed_tracks_are_written(self):
+        rc = self.run_cli(["--image", self.new, "--base", self.img] + self.ok)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.fake.tracks_written, [(1, 0)])
+        self.assertIn("1 of 3 tracks differ", self.out.getvalue())
+
+    def test_identical_images_write_nothing_and_never_open_the_port(self):
+        rc = self.run_cli(["--image", self.img, "--base", self.img] + self.ok)
+        self.assertEqual((rc, self.opened), (0, []))
+        self.assertIn("nothing to write", self.out.getvalue())
+
+    def test_base_with_different_geometry_refuses(self):
+        other = changed_image_file(tracks=2)
+        self.addCleanup(os.unlink, other)
+        rc = self.run_cli(["--image", self.new, "--base", other] + self.ok)
+        self.assertEqual((rc, self.fake.tracks_written if hasattr(self, "fake") else []), (2, []))
+
+    def test_still_requires_the_erase_confirmation(self):
+        rc = self.run_cli(["--image", self.new, "--base", self.img, "--drive", "0"], input_fn=lambda p: "no", isatty=True)
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(self.fake.tracks_written, [])
+
+    def test_dry_run_with_base_reports_changed_count(self):
+        rc = self.run_cli(["--image", self.new, "--base", self.img, "--drive", "0", "--dry-run"])
+        self.assertEqual((rc, self.opened), (0, []))
+        self.assertIn("1 of 3 tracks differ", self.out.getvalue())
 
 
 if __name__ == "__main__":

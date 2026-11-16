@@ -26,6 +26,10 @@ class DosLinkTests(unittest.TestCase):
         self.link.put("TEST/BIN", data)
         self.assertEqual(self.dos.files["TEST/BIN"], data)
 
+    def test_put_reports_whether_it_replaced_a_file(self):
+        self.assertFalse(self.link.put("TEST/BIN", b"one"))
+        self.assertTrue(self.link.put("TEST/BIN", b"two"))
+
     def test_put_sizes_on_record_boundaries(self):
         for n in (0, 1, 255, 256, 257, 512):
             data = bytes([n % 251 + 1]) * n
