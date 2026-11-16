@@ -61,6 +61,8 @@ class FakeNio:
         start, room = pl[3 + n] | pl[4 + n] << 8, pl[5 + n] | pl[6 + n] << 8
         if uri not in self.dirs:
             return IO_ERROR, b""
+        if not pl[7 + n] & 4:                                  # entries, not text lines (what the portable fnsvc asks for)
+            return self._entries(self.dirs[uri], start, room)
         lines = [ln.encode() + b"\n" for ln in self.dirs[uri]][start:]
         out, k = b"", 0
         for ln in lines:
@@ -69,6 +71,25 @@ class FakeNio:
             out += ln; k += 1
         return OK, bytes([1, 4 | (k < len(lines))]) + (0).to_bytes(2, "little") + start.to_bytes(2, "little") \
             + k.to_bytes(2, "little") + len(out).to_bytes(2, "little") + out
+
+    @staticmethod
+    def _entry(line):
+        """'d    0 Nov 16 09:00 utils/' -> eflags, nameLen, name, size(4), reserved(4), mtime(4), reserved(4)."""
+        parts = line.split()
+        name = parts[-1].rstrip("/").encode()
+        return (bytes([1 if parts[0] == "d" else 0, len(name)]) + name + int(parts[1]).to_bytes(4, "little")
+                + bytes(4) + bytes(4) + bytes(4))
+
+    def _entries(self, lines, start, room):
+        out, k = b"", 0
+        for ln in lines[start:]:
+            e = self._entry(ln)
+            if len(out) + len(e) + 10 > room:
+                break
+            out += e; k += 1
+        more = start + k < len(lines)
+        return OK, bytes([1, int(more)]) + bytes(2) + start.to_bytes(2, "little") + k.to_bytes(2, "little") \
+            + len(out).to_bytes(2, "little") + out
 
     def _list(self, pl):
         start, room = pl[6] | pl[7] << 8, pl[8] | pl[9] << 8
