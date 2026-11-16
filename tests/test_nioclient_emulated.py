@@ -3,8 +3,8 @@ import os, random, re, shutil, subprocess, unittest
 
 from tests.fakenio import FakeNio
 from tests.z80emu import Z80, load_hex
-from trs80 import fujibus as fb
-from trs80 import niodisk as nd
+from fujinet import fujibus as fb
+from fujinet import niodisk as nd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PB, NIO_TX, NIO_RX, BUF = 0x9F00, 0xA000, 0xA300, 0xC000

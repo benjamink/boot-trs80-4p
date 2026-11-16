@@ -1,4 +1,4 @@
-; nioclient.asm -- entry table at 8000h for the fujinet-nio client library (z80/nioclib.asm; see there).
+; nioclient.asm -- entry table at 8000h for the fujinet-nio client library (nioclib.asm; see there).
           org 8000h
           jp nio_exchange
           jp nio_request

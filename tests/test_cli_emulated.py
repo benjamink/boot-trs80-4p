@@ -5,8 +5,8 @@ import os, re, shutil, subprocess, unittest
 from tests.fakedos import FakeDos, DosExit
 from tests.fakenio import FakeNio
 from tests.z80emu import Z80, load_hex
-from trs80 import fujibus as fb
-from trs80 import niodisk as nd
+from fujinet import fujibus as fb
+from fujinet import niodisk as nd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

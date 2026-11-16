@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Run z80/nioclient.asm in the Z80 interpreter against a REAL fujinet-nio over a serial port / pty.
+"""Run fujinet/z80/nioclient.asm in the Z80 interpreter against a REAL fujinet-nio over a serial port / pty.
 
-  tools/nio_live_check.py /path/to/pty --image fujinet-data/images/ls631.img [--write-test]
+  fujinet/nio_live_check.py /path/to/pty --image fujinet-data/images/ls631.img [--write-test]
 
 Needs a fujinet-nio RS-232 build serving the image (see docs/superpowers/specs/*fujinet-nio-research-findings.md).
 Mounts nothing itself: mount slot 1 first (e.g. ./scripts/fujinet disk mount --slot 1 --type raw --sector-size 256 host:/images/x.img).

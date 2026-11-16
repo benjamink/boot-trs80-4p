@@ -2,8 +2,8 @@
 (docs/protocol_reference.md section 11, docs/disk_device_test_vectors.md)."""
 import unittest
 
-from trs80 import fujibus as fb
-from trs80 import niodisk as nd
+from fujinet import fujibus as fb
+from fujinet import niodisk as nd
 
 REQ = bytes.fromhex("01 10 0B 00 03 01 AA DE AD BE EF")     # protocol_reference.md section 11
 RESP = bytes.fromhex("01 10 0B 00 58 01 00 DE AD BE EF")

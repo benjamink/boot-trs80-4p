@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one of the LS-DOS FujiNet commands (FMOUNT, FUMOUNT, FDRIVE ...) in the Z80 interpreter against a REAL fujinet-nio.
 
-  tools/cli_live.py /path/to/pty "FMOUNT :0 host:/images/ls631.img ss=256"
+  fujinet/cli_live.py /path/to/pty "FMOUNT :0 host:/images/ls631.img ss=256"
 
 The text the program would show on the 4P is printed; the exit code is the program's return code.
 Needs a fujinet-nio RS-232 build on the other end (see docs/superpowers/specs/*fujinet-nio-research-findings.md).
