@@ -58,3 +58,87 @@ class RealImageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(IMAGES, "LS-DOS images not downloaded (images/lsdos631l-upstream)")
+class InjectorTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.base = load(os.path.join(ROOT, "images", "lsdos631l-upstream", "L631NEW.DSK"))
+
+    def roomy(self, *drop):
+        img = self.base
+        for n in drop or ("BASIC/CMD", "BASIC/OV1", "BASIC/OV2"):
+            img = lsdosfs.delete_file(img, n)
+        return img
+
+    def test_added_file_reads_back_identical(self):
+        data = bytes((i * 7) % 256 for i in range(5000))          # 5000 bytes: partial last record
+        out = lsdosfs.add_file(self.roomy(), "TRSDW/CMD", data)
+        self.assertEqual(lsdosfs.read_file(out, "TRSDW/CMD"), data)
+        self.assertIn(("TRSDW", "CMD", 5000), [(f.name, f.ext, f.size) for f in lsdosfs.list_files(out)])
+
+    def test_exact_record_multiple_and_tiny_files(self):
+        out = lsdosfs.add_file(self.roomy(), "A/TXT", b"x")
+        out = lsdosfs.add_file(out, "B/TXT", bytes(512))
+        self.assertEqual(lsdosfs.read_file(out, "A/TXT"), b"x")
+        self.assertEqual(lsdosfs.read_file(out, "B/TXT"), bytes(512))
+
+    def test_other_files_unchanged_byte_for_byte(self):
+        roomy = self.roomy()
+        out = lsdosfs.add_file(roomy, "TRSDW/CMD", b"hello" * 400)
+        for f in lsdosfs.list_files(roomy):
+            n = f"{f.name}/{f.ext}"
+            if n == "DIR/SYS":                                   # the directory itself changes by design
+                continue
+            self.assertEqual(lsdosfs.read_file(out, n), lsdosfs.read_file(roomy, n), n)
+
+    def test_original_image_object_is_not_modified(self):
+        before = self.base.to_bytes()
+        lsdosfs.delete_file(self.base, "BASIC/CMD")
+        self.assertEqual(self.base.to_bytes(), before)
+
+    def test_delete_removes_file_and_frees_granules(self):
+        out = lsdosfs.delete_file(self.base, "BASIC/CMD")
+        self.assertNotIn("BASIC/CMD", [f"{f.name}/{f.ext}" for f in lsdosfs.list_files(out)])
+        self.assertEqual(lsdosfs.free_granules(out), lsdosfs.free_granules(self.base) + 23076 // 1536 + 1)
+        with self.assertRaises(FileNotFoundError):
+            lsdosfs.delete_file(out, "BASIC/CMD")
+
+    def test_gat_allocated_granule_count_matches_file_size(self):
+        roomy = self.roomy()
+        for size in (1, 1536, 1537, 10000):
+            out = lsdosfs.add_file(roomy, "T/BIN", bytes(size))
+            used = lsdosfs.free_granules(roomy) - lsdosfs.free_granules(out)
+            self.assertEqual(used, -(-size // 1536), size)
+
+    def test_duplicate_name_rejected(self):
+        with self.assertRaises(lsdosfs.FileExistsError_):
+            lsdosfs.add_file(self.base, "SYS0/SYS", b"x")
+
+    def test_disk_full_raises(self):
+        with self.assertRaises(lsdosfs.DiskFullError):
+            lsdosfs.add_file(self.base, "BIG/BIN", bytes(1536 * 5))
+
+    def test_invalid_names_rejected(self):
+        for bad in ("TOOLONGNAME/CMD", "A/LONG", "has space/CMD", "", "/CMD", "A.B/CMD"):
+            with self.assertRaises(ValueError, msg=bad):
+                lsdosfs.add_file(self.roomy(), bad, b"x")
+
+    def test_image_still_parses_with_valid_crcs(self):
+        out = lsdosfs.add_file(self.roomy(), "TRSDW/CMD", bytes(range(256)) * 20)
+        again = dmk.parse_dmk(out.to_bytes())
+        for cyl in range(again.tracks):
+            for s in again.get(cyl, 0).sectors:
+                self.assertTrue(s.id_crc_ok and s.data_crc_ok, (cyl, s.num))
+        self.assertEqual(lsdosfs.read_file(again, "TRSDW/CMD"), bytes(range(256)) * 20)
+
+    def test_still_bootable_and_directory_marks_preserved(self):
+        out = lsdosfs.add_file(self.roomy(), "TRSDW/CMD", b"abc")
+        self.assertTrue(lsdosfs.is_bootable(out))
+        self.assertTrue(all(s.dam == 0xF8 for s in out.get(20, 0).sectors))
+
+    def test_hit_matches_hash_of_every_existing_entry_and_the_new_one(self):
+        out = lsdosfs.add_file(self.roomy(), "TRSDW/CMD", b"abc")
+        self.assertEqual(lsdosfs.check_hit(self.base), [])        # real image is the reference
+        self.assertEqual(lsdosfs.check_hit(out), [])
