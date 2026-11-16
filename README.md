@@ -45,7 +45,7 @@ are written by LS-DOS itself.
 
    Type `ERASE DRIVE 0` when asked. Then press reset without right-shift to boot LS-DOS.
 2. At the LS-DOS prompt type `SERIAL`. The 4P prints `Serial link ready`.
-3. On the PC: `./trs80put.py game.cmd notes.txt` (add `--exit` to return the 4P to the LS-DOS prompt).
+3. On the PC: `./trs80put.py game.cmd notes.txt` (add `--text` for text files so CRLF/LF line endings become CR and `LIST` does not double-space; add `--exit` to return the 4P to the LS-DOS prompt).
    `PROG.CMD` becomes `PROG/CMD`; use `--as NAME/EXT` to choose a name, `--drive N` for another drive.
    An existing file of the same name is replaced.
 

@@ -41,6 +41,16 @@ class PutCliTests(unittest.TestCase):
         self.assertEqual(self.run_cli([a, "--as", "RENAMED/BAS"]), 0)
         self.assertIn("RENAMED/BAS", self.dos.files)
 
+    def test_text_mode_converts_line_endings_to_cr(self):
+        p = self.local("notes.txt", b"one\r\ntwo\nthree\rfour\r\n\r\nend")
+        self.assertEqual(self.run_cli([p, "--text"]), 0)
+        self.assertEqual(self.dos.files["NOTES/TXT"], b"one\rtwo\rthree\rfour\r\rend")
+        self.assertIn("text", self.out.getvalue())
+
+    def test_without_text_mode_bytes_are_untouched(self):
+        self.assertEqual(self.run_cli([self.local("a.bin", b"x\r\ny\n")]), 0)
+        self.assertEqual(self.dos.files["A/BIN"], b"x\r\ny\n")
+
     def test_as_with_several_files_is_an_error(self):
         a, b = self.local("one.bas", b"1"), self.local("two.txt", b"2")
         with self.assertRaises(SystemExit):
