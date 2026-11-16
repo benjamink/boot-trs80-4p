@@ -136,6 +136,54 @@ class NiobootTests(unittest.TestCase):
         for high in (0xDFFF, 0xB000, 0x7FFF):
             self.assertEqual(self.call_rdsec_with_high(high), high, hex(high))
 
+    # ---- date and time. LS-DOS keeps them at 002Dh (sec, min, hour) and 0033h (year-1900, day, month). Its SYS0 initialisation
+    # (disassembled from SYS0/SYS, confirmed in MAME) takes the date from 0033h and skips the date prompt when it is valid, and skips
+    # the time prompt when the flag byte at 04C3h is nonzero. SYS0 then overwrites the time with its default, after the last disk
+    # read, and sets HIGH$ (040Eh, 0000 until then). So: when the loader has read the last boot sector (before SYS0) it asks the
+    # FujiNet's clock device (0x45, GetTimeFormat, simple format) and stores the date and the flag; the first driver call after HIGH$
+    # has jumped back up (LS-DOS finished initialising) asks again and stores the time.
+    def hook_sector_15(self):
+        """Run the boot sector's patched FDC routine for cylinder 0 sector 15 (where the loader points drive 0 at the driver)."""
+        self.run_to_boot_sector()
+        self.nio.requests.clear()
+        c, m = self.cpu, self.cpu.mem
+        m[self.sym["v_clk"]] = 3
+        m[0x0470:0x047A] = bytes([0xC3, 0x3D, 0x0E, 0x44, 0xC1, 0x15, 0x27, 0x11, 0x45, 0x14])
+        m[0x33:0x36] = bytes([0xFF, 0xFF, 0xFF])                      # cold RAM
+        m[0x2D:0x30] = bytes([1, 0, 0])
+        m[0x04C3] = 0
+        c.set_rp(2, 3, 15); c.set_rp(4, 5, 0x1100)
+        c.run_call(m[0x4397] | m[0x4398] << 8, max_steps=60_000_000)
+
+    def test_after_the_last_boot_sector_the_date_and_the_time_flag_come_from_the_fujinet_clock(self):
+        self.nio.clock = (2027, 11, 23, 14, 37, 45)
+        self.hook_sector_15()
+        m = self.cpu.mem
+        self.assertEqual(bytes(m[0x33:0x36]), bytes([127, 23, 11]))   # year - 1900, day, month
+        self.assertNotEqual(m[0x04C3], 0)                             # "time already set": no time prompt
+
+    def test_the_time_follows_once_ls_dos_has_finished_initialising(self):
+        self.nio.clock = (2027, 11, 23, 14, 37, 45)
+        self.hook_sector_15()
+        m = self.cpu.mem
+        self.nio.clock = (2027, 11, 23, 14, 38, 2)                    # a little later: the time is fetched afresh
+        self.call_rdsec_with_high(0x0000)                             # mid-boot: HIGH$ still 0
+        self.assertEqual(bytes(m[0x2D:0x30]), bytes([1, 0, 0]))
+        self.call_rdsec_with_high(0xFFFF)                             # init done
+        self.assertEqual(bytes(m[0x2D:0x30]), bytes([2, 38, 14]))
+        m[0x2D] = 9
+        self.call_rdsec_with_high(0xFFFF)
+        self.assertEqual(m[0x2D], 9)                                  # once only
+
+    def test_without_a_clock_device_nothing_is_touched_and_boot_carries_on(self):
+        self.nio.clock = None
+        self.hook_sector_15()
+        m = self.cpu.mem
+        self.call_rdsec_with_high(0xFFFF)
+        self.assertEqual((bytes(m[0x33:0x36]), m[0x04C3], bytes(m[0x2D:0x30])), (bytes([0xFF] * 3), 0, bytes([1, 0, 0])))
+        self.assertEqual(m[0xC000:0xC100], bytes(self.sector(1)))
+        self.assertLessEqual(len([r for r in self.nio.requests if r.device == 0x45]), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

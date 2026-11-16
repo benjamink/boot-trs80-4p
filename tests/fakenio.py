@@ -3,6 +3,7 @@ from fujinet import fujibus as fb
 from fujinet import niodisk as nd
 
 OK, DEVICE_NOT_FOUND, INVALID_REQUEST, DEVICE_BUSY, NOT_READY, IO_ERROR, TIMEOUT, INTERNAL, UNSUPPORTED = range(9)
+CLOCK_DEVICE, CLOCK_GET_FORMAT = 0x45, 0x03
 ERR_NOT_MOUNTED, ERR_OUT_OF_RANGE, ERR_READ_ONLY, ERR_FILE_NOT_FOUND = 10, 12, 11, 4
 
 
@@ -13,6 +14,7 @@ class FakeNio:
         self.uris = {}                        # slot -> (uri, readonly)
         self.slots = {}                       # slot -> [bytearray image, readonly]
         self.requests = []                    # decoded request packets, in arrival order
+        self.clock = None                     # (year, month, day, hour, minute, second) the Clock device reports; None = no clock device
         self.mangle = []                      # queue of callables(response_wire) -> wire (fault injection); None = pass
 
     def mount(self, slot, image, readonly=False):
@@ -87,6 +89,9 @@ class FakeNio:
         self.requests.append(p)
         if p.device == nd.DEVICE:
             status, payload = self._disk(p)
+        elif p.device == CLOCK_DEVICE and p.command == CLOCK_GET_FORMAT and self.clock:
+            y, mo, d, h, mi, sec = self.clock
+            status, payload = OK, bytes([1, p.payload[1], y // 100, y % 100, mo, d, h, mi, sec])      # simple format: century first
         elif p.device == nd.FILE_DEVICE and p.command == nd.FILE_LIST_DIRECTORY:
             status, payload = self._files(p.payload)
         else:

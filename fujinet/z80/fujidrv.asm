@@ -48,6 +48,13 @@ drv_entry:
           ld (HIGH_PTR+1),a
           ld a,0FFh
           ld (HIGH_PTR),a          ; HIGH$ := DRV_BASE-1
+          IFDEF DOS_CLOCK
+          ld a,(v_tpend)           ; armed and HIGH$ has gone back up: LS-DOS has finished initialising
+          dec a
+          jr nz,high_ok
+          ld a,2
+          ld (v_tpend),a
+          ENDIF
 high_ok:
           ENDIF
           ld a,i                   ; P/V = whether the caller had interrupts on
@@ -65,6 +72,15 @@ ei_off:   ld (v_ei),a
           ld a,0FFh
           out (0E9h),a
           out (0E8h),a
+          IFDEF DOS_CLOCK
+          ld a,(v_tpend)
+          cp 2
+          jr nz,no_time
+          push bc
+          call clock_time
+          pop bc
+no_time:
+          ENDIF
           call dispatch
           pop hl
           pop de
@@ -265,6 +281,98 @@ me_io:    ld a,(v_write)
           ld a,E_WERR
 me_x:     or a
           ret
+
+          IFDEF DOS_CLOCK
+; Floppy-less boot only (nioboot.asm): LS-DOS asks for the date and time at boot, and the FujiNet has a clock. What SYS0's
+; initialisation does (read from its disassembly, confirmed in MAME):
+;   - it takes the date from DOS_YEAR.. (year-1900, day, month) and skips the date prompt when that is valid;
+;   - it skips the time prompt when the flag byte DOS_TFLAG is nonzero, but first overwrites the time at DOS_SEC.. (sec, min,
+;     hour) with its own default, after the last disk read, and sets HIGH$ (HIGH_PTR, 0000 until then).
+; So clock_boot (called by nioboot when the last boot sector is in, before SYS0 loads) stores the date and the flag and arms
+; v_tpend; the first driver call after that which finds HIGH$ back up (see drv_entry) calls clock_time, which stores the time.
+; The FujiNet's clock device is 0x45, command 3 (GetTimeFormat), format 0 (simple): the answer is version, format, century,
+; year, month, day, hour, minute, second. At most three requests in all, so with no clock device the prompts simply appear.
+DOS_SEC   equ 002Dh
+DOS_YEAR  equ 0033h
+DOS_TFLAG equ 04C3h
+
+clock_boot:
+          call clock_get
+          ret c
+          ld a,(v_ck+5)
+          ld (DOS_YEAR),a
+          ld a,(v_ck+3)
+          ld (DOS_YEAR+1),a
+          ld a,(v_ck+4)
+          ld (DOS_YEAR+2),a
+          ld a,1
+          ld (DOS_TFLAG),a
+          ld (v_tpend),a           ; armed
+          ret
+
+clock_time:
+          xor a
+          ld (v_tpend),a           ; one try
+          call clock_get
+          ret c
+          ld hl,v_ck
+          ld de,DOS_SEC
+          ld bc,3
+          ldir
+          ret
+
+; CF=0: v_ck = second, minute, hour, day, month, year-1900.  CF=1: no answer.
+clock_get:
+          ld a,(v_clk)
+          or a
+          scf
+          ret z
+          dec a
+          ld (v_clk),a
+          ld hl,clk_req
+          ld de,3
+          ld a,45h
+          ld b,3
+          call nio_request
+          ret c
+          or a
+          jr nz,cg_bad             ; NIO status not Ok
+          ld a,d
+          or a
+          jr nz,cg_bad
+          ld a,e
+          cp 9
+          jr c,cg_bad              ; shorter than the simple format
+          inc hl
+          inc hl                   ; HL -> century
+          ld a,(hl)
+          sub 19
+          jr c,cg_bad
+          ld b,a
+          inc hl
+          ld a,(hl)                ; year within century
+          inc hl
+          inc b
+          jr cg_t
+cg_l:     add a,100
+cg_t:     djnz cg_l                ; + 100 per century after 1900
+          ld (v_ck+5),a
+          ld de,v_ck+4
+          ld b,5
+cg_c:     ld a,(hl)                ; month, day, hour, minute, second
+          ld (de),a
+          inc hl
+          dec de
+          djnz cg_c
+          or a
+          ret
+cg_bad:   scf
+          ret
+clk_req:  db 1,0,0                 ; protocol version 1, simple format, no timezone override
+v_clk:    db 3                     ; requests left
+v_tpend:  db 0                     ; 0 = nothing to do, 1 = armed, 2 = LS-DOS has finished initialising: set the time now
+v_ck:     ds 6
+          ENDIF
 
 ; ---- state ------------------------------------------------------------------------------------------------
 v_cs:     dw 0
