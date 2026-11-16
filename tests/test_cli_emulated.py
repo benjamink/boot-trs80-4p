@@ -54,6 +54,15 @@ class CliTests(unittest.TestCase):
         return rc, "\n".join(dos.messages), self.nio
 
 
+class UartSetupTests(CliTests):
+    PROGRAM = "fdrive"
+
+    def test_uart_is_programmed_exactly_as_the_4p_rom_does_it(self):
+        self.run_cli("FDRIVE")
+        setup = [w for w in self.uart if w[0] in (0xE8, 0xE9, 0xEA)]
+        self.assertEqual(setup, [(0xEA, 0x64), (0xE9, 0xFF), (0xE8, 0xFF)])
+
+
 class FmountTests(CliTests):
     PROGRAM = "fmount"
 

@@ -139,3 +139,27 @@ For a 4P CONFIG the same client (`nio_request`) carries every one of these; only
 3. Real-hardware test of `nioclient.asm` (owner): loader -> monitor -> client reading sectors from the PC-hosted NIO over the real cable.
 4. Boot-loader host service (NIO or PC helper) and the floppy-less LS-DOS start-up decision (plan Phase 1/3).
 5. Contact upstream about the TRS-80 ROM-loader boot service and DMK/JV3 images.
+
+
+## Emulation results (2026-11-16): MAME `trs80m4p`, real LS-DOS, serial pty
+
+- MAME 0.289 emulates the 4P with an `rs232` slot whose `pty` device gives the host a pseudo-terminal; baud/parity/bits are
+  settable per port from Lua (`:rs232:pty:RS232_RXBAUD` = 9 for 19200, parity 1 = odd, data bits 3 = 8). See `tools/mame4p.py`.
+- The ROM dump `8075332.u69` has CRC `3a738aa9`, the CRC MAME expects.
+- Verified in MAME with our unmodified tools: ROM serial loader (right-shift at reset gives "Ready"; `trs80mon.py boot` loads the
+  monitor, ping ok); LS-DOS 6.3.1 boots from the image `make_boot_image.py` builds; `SERIAL` + `trs80put.py --exit` + `LIST`;
+  `FLS`, `FMOUNT`, `FUMOUNT`, `FDRIVE` against a real fujinet-nio (PC build) over the pty.
+- **Bug found by it:** `SERIAL/CMD` and the CLI programs wrote the UART setup in the wrong way (`E8h` with an arbitrary value,
+  `EAh` = 67h). In MAME `E8h` written with 0 leaves the UART at 5 data bits, so nothing could talk. The ROM's own sequence
+  (`EAh`=64h, `E9h`=FFh, `E8h`=FFh) works and is what the code does now. Not known whether real hardware cares, but the ROM's
+  sequence is the one proven on it.
+- **Answered:** LS-DOS passes the command line in its original case (a lowercase URI arrived intact).
+- MAME's disk boot of the 4P ROM needs a workaround: the ROM tests drive-ready before the emulated drive has spun up
+  ("The Floppy Disk Drive Is Not Ready"); keeping drive 0 selected and resetting once fixes it (`tools/mame4p.lua`).
+  `-bios trs80m4p_hack` is not needed for this.
+- NIO serial settings (source reading): `fujinet.yaml` `channel.uart.parity: odd` is supported (POSIX and ESP32); TX pacing
+  (`tx_chunk_size`, `tx_chunk_gap_us`, `tx_gap_us`) only adds delay and is not needed for our polled receive, which needs at
+  most 32 instructions between bytes (about 170 microseconds against 520 available at 19200). The `FN_SERIAL_PORT` env path
+  leaves parity at its default, so a real 4P needs the yaml set to odd parity.
+- Speed: our Z80 transmit routine waits a fixed ~770 us per byte (character time is 573 us), so a 256-byte write costs about
+  0.2 s on the wire plus the wait; polling a transmit-ready status bit would shave that.

@@ -9,11 +9,11 @@
 cli_start:
           ld (CMDP),hl
           di
-          out (0E8h),a             ; UART master reset
+          ld a,64h
+          out (0EAh),a             ; control: 8 bits, odd parity, 1 stop, not-break (as the 4P ROM sets it)
           ld a,0FFh
           out (0E9h),a             ; 19200 baud send and receive
-          ld a,67h
-          out (0EAh),a             ; 8 bits, odd parity, 1 stop, not-break, DTR, RTS
+          out (0E8h),a             ; master reset / enable the control register load: the VALUE MATTERS in MAME (0 breaks it)
           call main
           ld l,a
           ld h,0

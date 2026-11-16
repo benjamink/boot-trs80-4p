@@ -70,3 +70,22 @@ sector); NIO has no DMK/JV3 support yet. These commands manage what the FujiNet 
 serial disk driver exists (plan phase 2) LS-DOS cannot read a mounted drive: the commands are verified in the
 Z80 interpreter and against a real fujinet-nio on a PC (`fujinet/cli_live.py`), not yet on the 4P itself.
 The code lives in `fujinet/` (see its README). Unknown on hardware: whether LS-DOS passes the command line in its original case (URIs are case-sensitive).
+
+## Testing without the 4P: MAME
+
+MAME's `trs80m4p` runs the real 4P boot ROM and real LS-DOS, with an RS-232 port that `tools/mame4p.py` exposes as a pty
+(set to 19200 baud, 8O1). It is how `SERIAL/CMD`, `trs80put.py` and the FujiNet commands were checked before the real
+machine was available.
+
+- ROMs: `images/roms/trs80m4p/` needs `8075332.u69`, `8049007.u103` and `trs80m4p_loader_hack.rom` (from the
+  `trs80m3.zip` ROM set; never committed). The u69 dump matches the CRC MAME expects.
+- Serial loader: `Mame4P(roms, mode="serial")` holds right-shift through reset, so `trs80mon.py -p <pty> boot` works as on the real machine.
+- Disk boot: MAME's ROM samples the floppy-ready line before the drive has spun up, so `tools/mame4p.lua` keeps drive 0
+  selected and resets once; LS-DOS then boots from the image (type the date and time at the prompts).
+- Run: `MAME_TESTS=1 python3 -m unittest tests.test_mame_integration` (about 80 seconds): sends a file with `SERIAL` +
+  `trs80put.py` and reads it back with `LIST`; runs `FLS`, `FMOUNT`, `FDRIVE`, `FUMOUNT` against the fake NIO.
+- `tools/ptybridge.py PTY1 PTY2 --log FILE` forwards bytes between two ptys and logs them in hex, e.g. MAME's pty and a
+  fujinet-nio's (see the research findings for running NIO on a PC).
+
+What MAME is not: it is not proof of real-hardware timing, and MAME's UART differs from the real one in at least one way
+(writing 0 to port E8h breaks its UART setup), which is why the init sequence copies the ROM's exactly.
