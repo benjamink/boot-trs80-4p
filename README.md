@@ -105,3 +105,8 @@ machine was available.
 
 What MAME is not: it is not proof of real-hardware timing, and MAME's UART differs from the real one in at least one way
 (writing 0 to port E8h breaks its UART setup), which is why the init sequence copies the ROM's exactly.
+
+## Licence
+
+GPL-3.0-or-later (see `LICENSE`), so the FujiNet work can go upstream to fujinet-nio, which is GPL-3.0. The LS-DOS images under `images/` are not covered by it:
+they keep their own terms (`images/lsdos631l-upstream/LICENSE`), and the 4P ROMs are not part of this repo.
