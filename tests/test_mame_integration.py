@@ -7,6 +7,7 @@ import os, select, shutil, subprocess, tempfile, threading, time, tty, unittest
 
 from fujinet import fujibus as fb
 from tests.fakenio import FakeNio
+from trs80 import dmk, lsdosfs
 from tools.make_boot_image import make_boot_image
 from tools.mame4p import Mame4P
 
@@ -44,17 +45,22 @@ class LsDosOnMameTests(unittest.TestCase):
         self.mame.wait_for("LS-DOS Ready", 30)
         time.sleep(1)
 
+    def at_prompt(self):
+        """True when the last non-blank screen line is the LS-DOS prompt (a long listing scrolls older prompts away)."""
+        lines = [l.strip().rstrip("_").strip() for l in self.mame.screen().splitlines() if l.strip().rstrip("_").strip()]
+        return bool(lines) and lines[-1] == "LS-DOS Ready"
+
     def command(self, line, expect, timeout=60):
-        before = self.mame.screen().count("LS-DOS Ready")
         self.mame.type(line + "\n")
+        time.sleep(3)                                  # let the command start (the prompt line is replaced by the echo)
         end = time.time() + timeout
         while time.time() < end:
-            s = self.mame.screen()
-            if s.count("LS-DOS Ready") > before:
+            if self.at_prompt():
                 break
             time.sleep(0.5)
         else:
             self.fail(f"{line!r} never returned to LS-DOS Ready; screen:\n{self.mame.screen()}")
+        s = self.mame.screen()
         self.assertIn(expect, s, line)
         return s
 
@@ -86,6 +92,31 @@ class LsDosOnMameTests(unittest.TestCase):
         self.command("FDRIVE", "1: AUTO sd0:/Game.img")
         self.command("FUMOUNT :1", "Unmounted :1")
         self.assertNotIn(2, nio.slots)
+
+    def test_driver_serves_a_drive_from_a_fujinet_image(self):
+        with open(BASE, "rb") as f:
+            flat = lsdosfs.flat_image(dmk.parse_dmk(f.read()))
+        nio = FakeNio()
+        nio.library["sd0:/Sys.img"] = flat
+        fd = os.open(self.mame.pty, os.O_RDWR | os.O_NOCTTY)
+        tty.setraw(fd)
+        stop = threading.Event()
+        t = threading.Thread(target=serve, args=(fd, nio, stop), daemon=True)
+        t.start()
+        self.addCleanup(lambda: (stop.set(), t.join(2), os.close(fd)))
+        self.command("FUJIDRV :2", "FujiNet driver installed on :2")
+        self.command("FMOUNT :2 sd0:/Sys.img ss=256", "Mounted :2 (720 sectors)")
+        self.mame.type("DIR :2\n")
+        self.mame.wait_for("TED/CMD", 300)             # a full screen: LS-DOS pauses until a key is pressed
+        self.mame.type("\n")
+        time.sleep(3)
+        end = time.time() + 60
+        while not self.at_prompt() and time.time() < end:
+            time.sleep(0.5)
+        s = self.mame.screen()
+        self.assertTrue(self.at_prompt(), s)
+        self.assertIn("COMM/CMD", s)
+        self.assertGreater(len([r for r in nio.requests if r.command == 3]), 3)     # sectors really came from the FujiNet
 
 
 if __name__ == "__main__":

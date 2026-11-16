@@ -67,6 +67,13 @@ emu.register_frame_done(function()
         io.open(ctl .. ".cmd", "w"):close()
         for line in data:gmatch("[^\n]+") do
           if line == "exit" then m:exit()
+          elseif line:sub(1, 5) == "peek " then
+            -- "peek <hex addr> <count>" -> <ctl>.peek as hex bytes
+            local a, n = line:match("peek (%x+) (%d+)")
+            local sp = m.devices[":maincpu"].spaces["program"]
+            local t = {}
+            for i = 0, tonumber(n) - 1 do t[#t + 1] = string.format("%02X", sp:read_u8(tonumber(a, 16) + i)) end
+            write_file(ctl .. ".peek", table.concat(t, " "))
           elseif line:sub(1, 5) == "keys " then m.natkeyboard:post((line:sub(6):gsub("\\n", "\n"))) end
         end
       end

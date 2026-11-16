@@ -16,6 +16,7 @@ class FakeDos:
         self.files = {}                 # "NAME/EXT" -> bytes (final, after close)
         self.pending = {}               # fcb address -> [name, bytearray]
         self.messages, self.calls, self.specs = [], [], []     # specs: raw filespecs given to @INIT/@OPEN
+        self.high, self.dct_base = 0xF7FF, 0x0470      # HIGH$ and the Drive Code Table (10 bytes per drive)
         self.fail = {}                  # svc number -> error number to return
         self.interrupts_on_at_svc = []
         orig = cpu.step
@@ -53,6 +54,14 @@ class FakeDos:
             while m[hl] not in (0x0D, 0x03):
                 s.append(m[hl]); hl += 1
             self.messages.append(bytes(s).decode("latin-1"))
+            return self._ret(True)
+        if n == 100:                                            # @HIGH$ (B=0: HIGH$; HL=0 reads, else sets)
+            if hl:
+                self.high = hl
+            cpu.set_rp(4, 5, self.high)
+            return self._ret(True)
+        if n == 81:                                             # @GTDCT: C = drive -> IY
+            cpu.iy = self.dct_base + 10 * cpu.R[1]
             return self._ret(True)
         if n == SVC_EXIT:
             raise DosExit()

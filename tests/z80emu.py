@@ -14,6 +14,7 @@ class Z80:
         self.mem = bytearray(65536)
         self.R = [0] * 8            # B C D E H L (HL) A
         self.F = 0
+        self.ix = self.iy = 0
         self.iff = True             # interrupts start enabled, as the ROM loader may leave them
         self.sp = 0xFFFF
         self.pc = 0
@@ -152,6 +153,8 @@ class Z80:
             d = self.fetch(); d -= 256 if d > 127 else 0
             if op == 0x18 or self.cond((op >> 3) & 3):
                 self.pc = (self.pc + d) & 0xFFFF
+        elif op == 0x2F:                                # CPL
+            R[7] ^= 0xFF; self.F |= H | N
         elif op == 0xE3:                                # EX (SP),HL
             lo, hi = self.mem[self.sp], self.mem[(self.sp + 1) & 0xFFFF]
             self.mem[self.sp], self.mem[(self.sp + 1) & 0xFFFF] = R[5], R[4]
@@ -208,6 +211,8 @@ class Z80:
                 self.F = (self.F & C) | H | (Z if z else 0)
             else:
                 raise NotImplementedError(f"CB {op2:02X} at {self.pc - 2:04X}")
+        elif op in (0xDD, 0xFD):
+            self.indexed(op)
         elif op == 0xED:
             op2 = self.fetch()
             if op2 & 0xCF == 0x42:                      # SBC HL,rr
@@ -239,6 +244,44 @@ class Z80:
                 raise NotImplementedError(f"ED {op2:02X} at {self.pc - 2:04X}")
         else:
             raise NotImplementedError(f"opcode {op:02X} at {self.pc - 1:04X}")
+
+    def indexed(self, prefix):
+        """DD/FD-prefixed instructions: the subset the driver code uses (IX and IY behave alike)."""
+        reg = "ix" if prefix == 0xDD else "iy"
+        get, put = (lambda: getattr(self, reg)), (lambda v: setattr(self, reg, v & 0xFFFF))
+        op = self.fetch()
+        R = self.R
+
+        def disp():
+            d = self.fetch()
+            return (get() + (d - 256 if d > 127 else d)) & 0xFFFF
+        if op == 0x21: put(self.fetch16())                                  # LD IY,nn
+        elif op == 0xE5: self.push(get())                                   # PUSH IY
+        elif op == 0xE1: put(self.pop())                                    # POP IY
+        elif op == 0x2A: put(self.rd16(self.fetch16()))                     # LD IY,(nn)
+        elif op == 0x22: self.wr16(self.fetch16(), get())                   # LD (nn),IY
+        elif op == 0xE9: self.pc = get()                                    # JP (IY)
+        elif op == 0x36:                                                    # LD (IY+d),n
+            a = disp(); self.mem[a] = self.fetch()
+        elif op & 0xC7 == 0x46 and op != 0x76:                              # LD r,(IY+d)
+            R[(op >> 3) & 7] = self.mem[disp()]
+        elif op & 0xF8 == 0x70 and op != 0x76:                              # LD (IY+d),r
+            self.mem[disp()] = R[op & 7]
+        elif op & 0xC7 == 0x86 or (op & 0xC0 == 0x80 and op & 7 == 6):      # ALU A,(IY+d)
+            self.alu((op >> 3) & 7, self.mem[disp()])
+        elif op == 0xCB:
+            a = disp(); op2 = self.fetch(); bit = (op2 >> 3) & 7
+            if op2 & 7 != 6:
+                raise NotImplementedError(f"{prefix:02X} CB {op2:02X}")
+            if op2 & 0xC0 == 0x40:                                          # BIT b,(IY+d)
+                z = not (self.mem[a] >> bit) & 1
+                self.F = (self.F & C) | H | (Z if z else 0)
+            elif op2 & 0xC0 == 0xC0: self.mem[a] |= 1 << bit                # SET
+            elif op2 & 0xC0 == 0x80: self.mem[a] &= ~(1 << bit) & 0xFF      # RES
+            else:
+                raise NotImplementedError(f"{prefix:02X} CB {op2:02X}")
+        else:
+            raise NotImplementedError(f"{prefix:02X} {op:02X} at {self.pc - 2:04X}")
 
     def run_call(self, addr, sentinel=0xFFF0, max_steps=30_000_000):
         """CALL addr and run until it returns."""
