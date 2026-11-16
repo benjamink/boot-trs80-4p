@@ -14,7 +14,8 @@ setport("RS232_DATABITS", 3); setport("RS232_STOPBITS", 1)
 
 local rshift
 for _, f in pairs(m.ioport.ports[":LINE7"].fields) do if f.name == "Right Shift" then rshift = f end end
-if mode == "serial" then rshift:set_value(1) end          -- right shift at reset: the ROM serial loader ("Ready")
+local hold_shift = (mode == "serial")                       -- right shift at reset: the ROM serial loader ("Ready")
+if hold_shift then rshift:set_value(1) end
 
 local function screen_text()
   local cols = 80
@@ -51,6 +52,7 @@ if already then already:close() end
 local frames = 0
 emu.register_frame_done(function()
   frames = frames + 1
+  if hold_shift then rshift:set_value(1) end              -- a real key press (window mode) would otherwise cancel it
   if mode == "disk" then
     -- MAME's 4P ROM samples the floppy ready line before the drive has spun up. Keep drive 0 selected so it spins;
     -- the first time round, reset once so the ROM then finds it running.
@@ -74,7 +76,7 @@ emu.register_frame_done(function()
             local t = {}
             for i = 0, tonumber(n) - 1 do t[#t + 1] = string.format("%02X", sp:read_u8(tonumber(a, 16) + i)) end
             write_file(ctl .. ".peek", table.concat(t, " "))
-          elseif line == "shiftup" then rshift:set_value(0)       -- let go of Right Shift (serial mode holds it until told)
+          elseif line == "shiftup" then hold_shift = false; rshift:set_value(0)       -- let go of Right Shift (serial mode holds it until told)
           elseif line == "pc" then
             -- "pc" -> <ctl>.pc : the Z80 program counter and stack pointer, hex
             local st = m.devices[":maincpu"].state
