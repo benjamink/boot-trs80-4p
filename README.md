@@ -79,7 +79,7 @@ from a DMK) instead of a floppy, patches the boot sector's one floppy-controller
 BOOT/SYS's drive table is loaded points drive 0 at the resident driver (`fujidrv.asm`, at E000h). LS-DOS then loads and runs entirely
 from the FujiNet. In MAME with no disk at all it reaches the date prompt in about 10 seconds, and `DIR :0` works.
 
-Known gap: the driver sits at E000h without HIGH$ being lowered, so a program that uses the top of memory can overwrite it.
+HIGH$ protection: LS-DOS sets HIGH$ (kept at 040Eh in 6.3.1) after this loader has handed over, so the driver lowers it to DFFFh on every call. Checked in MAME: HIGH$ reads FFFF without this and DFFF with it.
 
 ## Testing without the 4P: MAME
 

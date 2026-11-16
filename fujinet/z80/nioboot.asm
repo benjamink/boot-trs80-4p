@@ -12,6 +12,7 @@
           IFNDEF DRV_BASE
           DEFINE DRV_BASE 0E000h   ; where the driver (and its buffers) live
           ENDIF
+          DEFINE HIGH_PTR 040Eh    ; where LS-DOS 6.3.1 keeps HIGH$; the driver lowers it below itself (see fujidrv.asm)
 BOOTSEC   equ 4300h
 BS_READ   equ 4396h
 

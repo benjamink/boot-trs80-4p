@@ -115,5 +115,27 @@ class NiobootTests(unittest.TestCase):
         self.assertNotIn((0x9C, 0), self.out)
 
 
+    # ---- HIGH$ protection: LS-DOS 6.3.1 keeps HIGH$ at 040Eh (read 0FFFFh at the prompt, 0F790h after FUJIDRV lowered it by
+    # the size of the driver -- found by diffing MAME's memory). The floppy-less driver sits at E000h, and LS-DOS sets HIGH$
+    # itself after this loader has handed over, so the driver lowers it on every call instead.
+    def call_rdsec_with_high(self, high):
+        c = self.cpu
+        c.mem[0x040E], c.mem[0x040F] = high & 255, high >> 8
+        c.R[0], c.R[1] = 9, 0                                           # B = RDSEC
+        c.set_rp(2, 3, 0x0001)                                          # cylinder 0, sector 1
+        c.set_rp(4, 5, 0xC000)
+        c.iy, c.sp, c.iff = 0x0470, 0x7000, False
+        c.run_call(self.sym["drv_entry"], max_steps=60_000_000)
+        return c.mem[0x040E] | c.mem[0x040F] << 8
+
+    def test_driver_lowers_a_high_pointer_that_sits_above_it(self):
+        for high in (0xFFFF, 0xF790, 0xE000):
+            self.assertEqual(self.call_rdsec_with_high(high), 0xDFFF, hex(high))
+
+    def test_driver_leaves_a_high_pointer_below_it_alone(self):
+        for high in (0xDFFF, 0xB000, 0x7FFF):
+            self.assertEqual(self.call_rdsec_with_high(high), high, hex(high))
+
+
 if __name__ == "__main__":
     unittest.main()
