@@ -8,7 +8,7 @@ import os, select, shutil, subprocess, tempfile, threading, time, tty, unittest
 from fujinet import fujibus as fb
 from tests.fakenio import FakeNio
 from tests.test_mame_integration import BASE, ROMS, HAVE, serve
-from tools.make_boot_image import make_boot_image
+from tools.make_boot_image import DROP, make_boot_image
 from tools.mame4p import Mame4P
 from tools.zcc_cmd import bin_to_lmf
 from trs80 import dmk, lsdosfs
@@ -16,6 +16,11 @@ from trs80.lmf import build_lmf, parse_hex
 
 NIO_CONFIG = os.environ.get("NIO_CONFIG_DIR", os.path.expanduser("~/dev/fujinet-nio-workspace/repos/nio-config"))
 TRS80 = os.path.join(NIO_CONFIG, "trs80")
+
+
+# The stock LS-DOS disk is nearly full; CONFIG is far bigger than the commands already added. Tests drop the
+# BASIC family and other bulk (about 30 KB) to make room; what the shipped boot disk drops is Task 7's decision.
+TEST_DROP = DROP + ("BASIC/CMD", "BASIC/OV1", "BASIC/OV2", "BREF/CMD")
 
 
 @unittest.skipUnless(HAVE and shutil.which("zcc"), "set MAME_TESTS=1 and install mame, sjasmplus, z88dk, the LS-DOS image and the 4P ROMs")
@@ -26,7 +31,7 @@ class ConfigOnMameTests(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp)
         disk = os.path.join(tmp, "boot.dmk")
-        make_boot_image(BASE, disk)
+        make_boot_image(BASE, disk, drop=TEST_DROP)
         with open(disk, "rb") as f:
             img = dmk.parse_dmk(f.read())
         for name, blob in extra.items():
@@ -44,16 +49,16 @@ class ConfigOnMameTests(unittest.TestCase):
         time.sleep(1)
 
     def build(self, name, with_client=False):
-        """/CMD for trs80/build/<name>.bin; with_client also carries nioclient (8000h), as CONFIG/CMD does."""
+        """/CMD for trs80/build/<name>.bin; with_client also carries the client (nioclient_config.asm, D000h), as CONFIG/CMD does."""
         subprocess.run(["make", "-C", TRS80, "build/%s.bin" % name], check=True, stdout=subprocess.DEVNULL)
         with open(os.path.join(TRS80, "build", name + ".bin"), "rb") as f:
             segs = {0x3000: f.read()}
         if with_client:
             root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            subprocess.run(["make", "-C", root, "build/nioclient.hex"], check=True, stdout=subprocess.DEVNULL)
-            client, _ = parse_hex(os.path.join(root, "build", "nioclient.hex"))
+            subprocess.run(["make", "-C", root, "build/nioclient_config.hex"], check=True, stdout=subprocess.DEVNULL)
+            client, _ = parse_hex(os.path.join(root, "build", "nioclient_config.hex"))
             segs.update(client)
-        assert max(a + len(d) for a, d in segs.items() if a == 0x3000) <= 0x8000, "program overlaps nioclient"
+        assert 0x3000 + len(segs[0x3000]) <= 0xD000, "program overlaps the client at D000h"
         return build_lmf(segs, 0x3000, block=240)
 
     def serve_nio(self, nio):
@@ -95,6 +100,19 @@ class ConfigOnMameTests(unittest.TestCase):
         screen = self.mame.screen()
         self.assertIn("D utils", screen)
         self.assertIn("F Game.img", screen)
+
+    def test_portable_store_round_trips_hosts_mappings_and_a_slot(self):
+        nio = FakeNio()
+        self.boot({"STORE/CMD": self.build("store_selftest", with_client=True)})
+        self.serve_nio(nio)
+        self.mame.type("STORE\n")
+        self.mame.wait_for("slot0=", 90)
+        screen = self.mame.screen()
+        for expect in ("save_hosts=ok", "save_maps=ok", "write_slot=ok", "load=ok", "host0=sd0:/",
+                       "host1=tnfs://example.org/trs80", "map1=121", "read_slot=ok", "slot0=host:/disks/work.dsk"):
+            self.assertIn(expect, screen)
+        self.assertEqual(nio.catalog[0][1], "host:/disks/work.dsk")
+        self.assertIn(("config-nio", "hosts"), nio.appstore)
 
     def test_unanswered_request_returns_to_ls_dos_with_an_error(self):
         self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})   # nobody answers on the line
