@@ -130,6 +130,7 @@ def main(argv=None, *, input_fn=input, open_fdc=_default_open_fdc, out=print, is
     last_cyl = max(c for c, _ in todo) if todo else -1
     out(f"image {a.image}: {len(todo)} tracks to write, cylinders 0-{last_cyl}")
     only = None
+    base = None
     if a.base:
         with open(a.base, "rb") as f:
             base = parse_dmk(f.read())
@@ -157,6 +158,15 @@ def main(argv=None, *, input_fn=input, open_fdc=_default_open_fdc, out=print, is
     if 0 <= info.max_track < last_cyl:
         out(f"refusing: image needs cylinder {last_cyl} but the drive's highest readable track is {info.max_track}")
         return 2
+    if only is not None:
+        kept = [(c, sd) for c, sd in todo if (c, sd) not in only]
+        out(f"checking that the {len(kept)} tracks that will be kept really hold {a.base} ...")
+        for c, sd in kept:
+            bad = _verify_track(fdc, a.drive, base.get(c, sd))
+            if bad:
+                out(f"refusing: C{c} H{sd} sector {bad[0]} {bad[1]}: the floppy does not hold {a.base} "
+                    "(was it changed since, e.g. by trs80put, or is it another disk?). Run again without --base to rewrite everything.")
+                return 2
     if not confirm_erase(a.drive, info, input_fn, a.confirm, isatty):
         out("not confirmed; nothing was written")
         return 2

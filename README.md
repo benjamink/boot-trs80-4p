@@ -50,7 +50,13 @@ are written by LS-DOS itself.
    An existing file of the same name is replaced.
 
 While `SERIAL` runs, the 4P's interrupts are off (the clock and keyboard are idle); it ends with `--exit`
-or reset. To change the disk later, keep the image file you last wrote and pass it as `--base`.
+or reset.
+
+**Not yet verified on the real 4P** (only in the Z80 interpreter and MAME): `SERIAL/CMD`, `trs80put.py`, and the boot image's file additions.
+
+`--base OLD.DSK` rewrites only the tracks that differ from `OLD.DSK`, which is only valid while the floppy still holds exactly that image. Files sent with `trs80put.py`
+change the floppy behind its back, so `writedisk.py` now reads back every track it would keep and refuses (before asking to erase) if any differs from the base or
+cannot be read; run it without `--base` then. Each `trs80put` call gives LS-DOS up to 30 s to finish (floppy spin-up, directory and allocation updates).
 
 ## FujiNet commands under LS-DOS (FMOUNT, FUMOUNT, FDRIVE, FLS)
 
@@ -76,7 +82,8 @@ The code lives in `fujinet/` (see its README). Unknown on hardware: whether LS-D
 `nioboot` is a loader for the ROM's serial loader (hold Right Shift at reset, send it with `trs80boot.py build/nioboot.hex --entry 0x5000`).
 It reads the LS-DOS boot sector from FujiNet slot 1 (a raw 256-byte-sector image, 18 per cylinder; `trs80.lsdosfs.flat_image` makes one
 from a DMK) instead of a floppy, patches the boot sector's one floppy-controller routine to fetch sectors from the FujiNet, and once
-BOOT/SYS's drive table is loaded points drive 0 at the resident driver (`fujidrv.asm`, at E000h). LS-DOS then loads and runs entirely
+BOOT/SYS's drive table is loaded points drive 0 at the resident driver (`fujidrv.asm`, at E000h). If the FujiNet stops answering, the driver gives one full attempt
+(3 tries, about 13 s with interrupts off), then fails the next 7 calls at once with "device not available" and looks again on the 8th. LS-DOS then loads and runs entirely
 from the FujiNet. In MAME with no disk at all it reaches the date prompt in about 10 seconds, and `DIR :0` works.
 
 Checked on a real 4P (no diskette in the drive) against the real fujinet-nio POSIX build on a PC (`fujibus-rs232`, `/dev/ttyUSB0`, 19200 baud, `parity: odd` in `fujinet.yaml`): boots to `LS-DOS Ready`, `DIR :0`, `FLS`, `FUJIDRV :1`, `FMOUNT :1 host:/images/work.img SS=256`, `FDRIVE` and `DIR :1` all work. Notes from that session:
