@@ -54,6 +54,11 @@ class Mame4P:
         with open(self.ctl + ".cmd", "a") as f:
             f.write("keys " + text.replace("\n", "\\n") + "\n")
 
+    def press(self, keys):
+        """Hold physical keys named as MAME names them, joined by '+' (e.g. "Up", "Left Shift+Up", "Break")."""
+        with open(self.ctl + ".cmd", "a") as f:
+            f.write("press " + keys + "\n")
+
     def peek(self, addr, count, timeout=10):
         """Read `count` bytes of the 4P's memory (as the CPU sees it right now) through MAME."""
         try:
