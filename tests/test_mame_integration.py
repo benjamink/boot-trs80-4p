@@ -162,6 +162,8 @@ class FloppylessBootTests(unittest.TestCase):
         screen = self.mame.screen()
         self.assertIn("L631NEW", screen)                                                  # the volume name of the image we served
         self.assertGreater(len(self.nio.requests), before)                                # DIR read through the driver
+        high = self.mame.peek(0x040E, 2)                                                  # HIGH$ (LS-DOS 6.3.1 keeps it here)
+        self.assertEqual(high[0] | high[1] << 8, 0xDFFF)                                  # just below the driver at E000h
 
 
 if __name__ == "__main__":

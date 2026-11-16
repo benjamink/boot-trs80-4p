@@ -40,6 +40,16 @@ drv_entry:
           push bc
           push de
           push hl
+          IFDEF HIGH_PTR           ; floppy-less boot only (nioboot.asm): HIGH$ must stay below this driver
+          ld a,(HIGH_PTR+1)
+          cp DRV_BASE/256
+          jr c,high_ok             ; already below the driver
+          ld a,DRV_BASE/256-1
+          ld (HIGH_PTR+1),a
+          ld a,0FFh
+          ld (HIGH_PTR),a          ; HIGH$ := DRV_BASE-1
+high_ok:
+          ENDIF
           ld a,i                   ; P/V = whether the caller had interrupts on
           ld a,0
           jp po,ei_off
