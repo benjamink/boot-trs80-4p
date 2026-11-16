@@ -205,7 +205,11 @@ rp_start: ld hl,NIO_RX
           ld bc,0
           ld d,0                   ; D = escape pending
 rp_loop:  call rx_to
-          jr c,rp_timeout
+          jr nc,rp_got
+rp_timeout: ld a,1
+          scf
+          ret
+rp_got:
           cp 0C0h
           jr z,rp_end
           ld e,a
@@ -265,15 +269,17 @@ rp_lenok: ld hl,(NIO_RX+2)
           ld a,(NIO_RX+5)
           cp 1                     ; exactly one 1-byte parameter: the status
           jr nz,rp_baddesc
+          ld hl,(NIO_RX)           ; device, command: must echo the request. Anything else is a late answer to an
+          ld de,(NIO_TX)           ; earlier try (a slow FujiNet answers both); drop it and wait for the real one
+          or a
+          sbc hl,de
+          jp nz,recv_packet
           ld hl,-7
           add hl,bc
           ex de,hl                 ; DE = payload length
           ld hl,NIO_RX+7           ; HL = payload
           ld a,(NIO_RX+6)          ; A = NIO status
           or a                     ; CF = 0
-          ret
-rp_timeout: ld a,1
-          scf
           ret
 rp_badesc:ld a,2
           scf
@@ -379,7 +385,9 @@ di_ok_any: inc hl                  ; flags
           ret
 
 disk_read:
-          ld hl,PAY
+          ld a,TRIES
+          ld (v_dtries),a
+dr_again: ld hl,PAY
           call disk_head
           ld (hl),0                ; maxBytes = 256
           inc hl
@@ -395,7 +403,18 @@ disk_read:
           ld a,e
           cp 11
           jr c,dk_bad
-          ld a,(hl)
+          push hl                  ; the answer must be for the slot and LBA asked: a late answer to an earlier try is not
+          ld de,4                  ; this sector's data
+          add hl,de
+          ld de,PB
+          ld b,5
+dr_cmp:   ld a,(de)
+          cp (hl)
+          jr nz,dr_stale
+          inc de
+          inc hl
+          djnz dr_cmp
+          pop hl
           push hl
           ld bc,9
           add hl,bc
@@ -421,6 +440,14 @@ dk_bad:   ld a,7
           ld (PB+8),a
           or 1
           ret
+dr_stale: pop hl
+          ld a,(v_dtries)
+          dec a
+          ld (v_dtries),a
+          jr nz,dr_again           ; ask again (the exchange flushes what is still arriving)
+          jr dk_bad
+
+v_dtries: db 0
 
 disk_write:
           ld hl,NIO_TX+6

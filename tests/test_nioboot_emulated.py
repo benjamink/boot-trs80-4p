@@ -115,6 +115,16 @@ class NiobootTests(unittest.TestCase):
         self.assertNotIn((0x9C, 0), self.out)
 
 
+    def test_a_link_that_comes_up_late_still_boots_and_the_wait_is_announced(self):
+        saved = self.nio.slots.copy()
+        self.nio.slots.clear()
+        c = self.cpu
+        for _ in range(4_000_000):                                       # far longer than one answer timeout: three tries are over
+            c.step()
+        self.assertIn(b"Waiting for FujiNet", bytes(c.mem[0x3E80:0x3E80 + 40]))
+        self.nio.slots.update(saved)                                     # the FujiNet is plugged in / started
+        self.run_to_boot_sector()                                        # ... and the boot goes on by itself
+
     # ---- HIGH$ protection: LS-DOS 6.3.1 keeps HIGH$ at 040Eh (read 0FFFFh at the prompt, 0F790h after FUJIDRV lowered it by
     # the size of the driver -- found by diffing MAME's memory). The floppy-less driver sits at E000h, and LS-DOS sets HIGH$
     # itself after this loader has handed over, so the driver lowers it on every call instead.
