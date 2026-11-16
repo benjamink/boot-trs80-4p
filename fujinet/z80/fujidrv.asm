@@ -1,10 +1,10 @@
 ; fujidrv.asm -- resident LS-DOS 6 disk driver that serves a drive from a fujinet-nio disk image over the 4P's UART.
 ;
-; Installed by FUJIDRV/CMD (fujidrv_cmd.asm), which copies this image below HIGH$ and points a drive's DCT at drv_entry.
+; Installed by FUJIDRV/CMD (fujidrv_cmd.asm), which copies this image below HIGH$, sets v_slot and points a drive's DCT at drv_entry.
 ; ABI, as the LS-DOS floppy and MEMDISK drivers use it (TRSDOS 6 technical reference, "Disk I/O Table"):
 ;     B = function, D = cylinder, E = sector, HL = buffer, IY = the drive's DCT entry.
-;     Returns Z = ok, or NZ with A = LS-DOS error number. BC, DE, HL are preserved; interrupts are left enabled.
-; The FujiNet slot is kept in DCT+5 (the "drive select code for an alien controller", DCT+4 bit 4).
+;     Returns Z = ok, or NZ with A = LS-DOS error number. BC, DE, HL are preserved; interrupts are as the caller had them.
+; The FujiNet slot is the driver's own (v_slot, set by the installer): LS-DOS keeps rewriting DCT+5, so nothing may live there.
 ; Geometry comes from the DCT: DCT+6 = last cylinder, DCT+7 = sectors per cylinder - 1, DCT+9 = directory cylinder.
 ; Sector size is 256. LBA = cylinder * sectors-per-cylinder + sector. Single-sided only.
 ;
@@ -40,10 +40,15 @@ drv_entry:
           push bc
           push de
           push hl
+          ld a,i                   ; P/V = whether the caller had interrupts on
+          ld a,0
+          jp po,ei_off
+          inc a
+ei_off:   ld (v_ei),a
           di                       ; the UART has no FIFO: nothing may interrupt the exchange
           ld (v_cs),de             ; sector (E) and cylinder (D)
           ld (PB+5),hl             ; buffer
-          ld a,(iy+5)
+          ld a,(v_slot)
           ld (PB),a                ; FujiNet slot
           ld a,64h                 ; programmed exactly as the 4P ROM does it (see fujinet/z80/fcli.asm)
           out (0EAh),a
@@ -54,7 +59,14 @@ drv_entry:
           pop hl
           pop de
           pop bc
-          ei
+          push af
+          ld a,(v_ei)
+          or a
+          jr z,no_ei
+          pop af
+          ei                       ; as the caller had it
+          ret
+no_ei:    pop af
           ret
 
 dispatch: ld a,b
@@ -250,6 +262,8 @@ v_sec     equ v_cs
 v_cyl     equ v_cs+1
 v_write:  db 0
 v_mask:   db 0
+v_ei:     db 0
+v_slot:   db 1                     ; FujiNet slot this copy of the driver serves; FUJIDRV writes it after copying
 ready_mask: db 0
 
 ; ---- the FujiNet client, with its buffers placed after the image ------------------------------------------

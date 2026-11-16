@@ -119,5 +119,50 @@ class LsDosOnMameTests(unittest.TestCase):
         self.assertGreater(len([r for r in nio.requests if r.command == 3]), 3)     # sectors really came from the FujiNet
 
 
+@unittest.skipUnless(HAVE, "set MAME_TESTS=1 and install mame, sjasmplus, the LS-DOS image and the 4P ROMs")
+class FloppylessBootTests(unittest.TestCase):
+    """The 4P with NO disk media: the ROM serial loader runs nioboot, which boots LS-DOS from a FujiNet image."""
+
+    def setUp(self):
+        subprocess.run(["make", "-B", "-C", ROOT], check=True, stdout=subprocess.DEVNULL)
+        with open(BASE, "rb") as f:
+            flat = lsdosfs.flat_image(dmk.parse_dmk(f.read()))
+        self.nio = FakeNio()
+        self.nio.mount(1, flat)
+        self.mame = Mame4P(ROMS, None, mode="serial")
+        pty = self.mame.start()
+        self.addCleanup(self.mame.stop)
+        self.mame.wait_for("Ready", 120)                      # the ROM serial loader is waiting
+        time.sleep(1)
+        r = subprocess.run(["python3", os.path.join(ROOT, "trs80boot.py"), os.path.join(ROOT, "build", "nioboot.hex"),
+                            "-p", pty, "--entry", "0x5000", "-y"], capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.mame.release_shift()                              # like letting go of the key once 'Ready' has appeared
+        self.fd = os.open(pty, os.O_RDWR | os.O_NOCTTY)
+        tty.setraw(self.fd)
+        self.stop = threading.Event()
+        t = threading.Thread(target=serve, args=(self.fd, self.nio, self.stop), daemon=True)
+        t.start()
+        self.addCleanup(lambda: (self.stop.set(), t.join(2), os.close(self.fd)))
+
+    def test_boots_ls_dos_to_the_date_prompt_without_any_disk(self):
+        s = self.mame.wait_for("Date MM/DD/YY", 180)
+        self.assertIn("LS-DOS 06.03.01", s)
+        self.assertGreater(len([r for r in self.nio.requests if r.command == 3]), 20)    # sectors came from the FujiNet
+        self.mame.type("01/02/26\n")
+        self.mame.wait_for("Time HH:MM:SS", 30)
+        self.mame.type("\n")
+        self.mame.wait_for("LS-DOS Ready", 60)
+        before = len(self.nio.requests)
+        time.sleep(1)
+        self.mame.type("DIR :0\n")
+        end = time.time() + 240
+        while time.time() < end and "FORMAT/CMD" not in self.mame.screen() and "SYS0/SYS" not in self.mame.screen():
+            time.sleep(1)
+        screen = self.mame.screen()
+        self.assertIn("L631NEW", screen)                                                  # the volume name of the image we served
+        self.assertGreater(len(self.nio.requests), before)                                # DIR read through the driver
+
+
 if __name__ == "__main__":
     unittest.main()

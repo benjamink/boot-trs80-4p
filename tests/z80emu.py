@@ -221,6 +221,9 @@ class Z80:
                 r = res & 0xFFFF
                 self.F = (r >> 8 & S) | (Z if r == 0 else 0) | N | (C if res < 0 else 0)
                 self.set_rp(4, 5, r)
+            elif op2 == 0x57:                           # LD A,I (no I register: reads 0; P/V = IFF2)
+                R[7] = 0
+                self.F = (self.F & C) | Z | (PV if self.iff else 0)
             elif op2 == 0xB0:                           # LDIR
                 while True:
                     self.mem[self.rp(2, 3)] = self.mem[self.hl()]

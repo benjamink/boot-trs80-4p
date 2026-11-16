@@ -5,7 +5,7 @@ The driver is assembled twice, at 1000h and 2000h; every byte that differs is th
 positions of those words are exactly the relocations. The package holds the image rebased to address 0, the relocation
 offsets and the sizes the installer (FUJIDRV/CMD) needs:
 
-    dw image_length, dw total_length (image plus buffers), dw entry_offset, dw reloc_count, dw reloc_offsets..., image
+    dw image_length, dw total_length (image plus buffers), dw entry_offset, dw slot_offset, dw reloc_count, dw reloc_offsets..., image
 
 Used by the Makefile:  python3 tools/make_driver.py build/fujidrv.pkg
 """
@@ -19,7 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "fujinet", "z80", "fujidrv.asm")
 BASE_A, BASE_B = 0x1000, 0x2000
 
-Package = namedtuple("Package", "blob total entry relocs")
+Package = namedtuple("Package", "blob total entry slot relocs")
 
 
 def _assemble(base, workdir):
@@ -58,10 +58,11 @@ def build_package(outdir):
         blob[off], blob[off + 1] = word & 255, (word >> 8) & 255
     total = syms_a["drv_end"] - BASE_A
     entry = syms_a["drv_entry"] - BASE_A
+    slot = syms_a["v_slot"] - BASE_A
     os.makedirs(outdir, exist_ok=True)
     path = os.path.join(outdir, "fujidrv.pkg")
     with open(path, "wb") as f:
-        f.write(struct.pack("<4H", len(blob), total, entry, len(relocs)))
+        f.write(struct.pack("<5H", len(blob), total, entry, slot, len(relocs)))
         f.write(struct.pack(f"<{len(relocs)}H", *relocs))
         f.write(blob)
     return path
@@ -69,11 +70,11 @@ def build_package(outdir):
 
 def parse_package(path):
     d = open(path, "rb").read()
-    n, total, entry, count = struct.unpack("<4H", d[:8])
-    relocs = list(struct.unpack(f"<{count}H", d[8:8 + 2 * count]))
-    blob = d[8 + 2 * count:]
+    n, total, entry, slot, count = struct.unpack("<5H", d[:10])
+    relocs = list(struct.unpack(f"<{count}H", d[10:10 + 2 * count]))
+    blob = d[10 + 2 * count:]
     assert len(blob) == n
-    return Package(blob, total, entry, relocs)
+    return Package(blob, total, entry, slot, relocs)
 
 
 if __name__ == "__main__":

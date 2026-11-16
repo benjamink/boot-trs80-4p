@@ -36,7 +36,8 @@ class DriverTests(unittest.TestCase):
         self.dec = fb.SlipDecoder()
         self.cpu.io_in, self.cpu.io_out = self._in, self._out
         # DCT entry: JP driver, flags (DDEN), alien controller + DD capable, slot, last cylinder, sectors-1, gran, dir cyl
-        self.cpu.mem[DCT:DCT + 10] = bytes([0xC3, 0, 0, 0x44, 0x50, 3, 39, 17, 0x45, 20])
+        self.cpu.mem[self.sym["v_slot"]] = 3                            # this driver copy serves slot 3
+        self.cpu.mem[DCT:DCT + 10] = bytes([0xC3, 0, 0, 0x44, 0x50, 0x14, 39, 17, 0x45, 20])   # +5 is LS-DOS's: it may hold anything
 
     def _in(self, port):
         if port == 0xEA:
@@ -49,7 +50,7 @@ class DriverTests(unittest.TestCase):
             for frame in self.dec.feed(bytes([val])):
                 self.rx.extend(self.nio.handle(frame))
 
-    def call(self, func, cyl=0, sec=0, hl=BUF, bc=0x1234, de=None):
+    def call(self, func, cyl=0, sec=0, hl=BUF, bc=0x1234, de=None, iff=False):
         c = self.cpu
         c.R[0], c.R[1] = func, bc & 255                                 # B = function, C = anything
         c.R[1] = bc & 255
@@ -57,7 +58,7 @@ class DriverTests(unittest.TestCase):
         c.set_rp(4, 5, hl)
         c.iy = DCT
         c.sp = 0x7000
-        c.iff = False
+        c.iff = iff
         c.run_call(self.sym["drv_entry"], max_steps=60_000_000)
         return c.R[7], not (c.F & 0x40)                                 # (A, NZ?)
 
@@ -87,9 +88,10 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(self.call(RDSEC, cyl=40, sec=0), (E_DNF, True))
         self.assertEqual(self.nio_requests(nd.READ_SECTOR), [])         # refused without asking the FujiNet
 
-    def test_slot_comes_from_the_dct(self):
+    def test_slot_is_the_drivers_own_and_ignores_dct_plus_5(self):
         self.nio.mount(5, bytes(range(256)) * 720)
-        self.cpu.mem[DCT + 5] = 5
+        self.cpu.mem[self.sym["v_slot"]] = 5
+        self.cpu.mem[DCT + 5] = 0x99                                     # LS-DOS reuses this byte (its boot code writes it)
         self.call(RDSEC, cyl=0, sec=1)
         self.assertEqual(bytes(self.cpu.mem[BUF:BUF + 256]), bytes(range(256)))
 
@@ -155,11 +157,17 @@ class DriverTests(unittest.TestCase):
         self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (0, False))
 
     # ---- conventions ----
-    def test_registers_are_preserved_and_interrupts_end_up_enabled(self):
+    def test_registers_are_preserved(self):
         self.call(RDSEC, cyl=2, sec=3, hl=BUF, bc=0xBEEF)
         c = self.cpu
         self.assertEqual((c.rp(0, 1), c.rp(2, 3), c.hl()), (RDSEC << 8 | 0xEF, 2 << 8 | 3, BUF))   # B = the function, C kept
-        self.assertTrue(c.iff)
+
+    def test_the_callers_interrupt_state_is_restored(self):
+        for state in (True, False):
+            self.call(RDSEC, cyl=2, sec=3, iff=state)
+            self.assertEqual(self.cpu.iff, state)
+            self.assertEqual(self.call(RDSEC, cyl=20, sec=3, iff=state), (E_SYSREC, True))   # error path too
+            self.assertEqual(self.cpu.iff, state)
 
     def test_uart_is_programmed_like_the_rom_each_time(self):
         self.call(SELECT)
