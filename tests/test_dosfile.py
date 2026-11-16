@@ -88,8 +88,10 @@ class SerialCmdTests(unittest.TestCase):
         t.cpu.pc = 0x5F00
         m = Monitor(t, timeout=0.01, retries=4)
         self.assertEqual(m.ping(b"hi"), b"hi")                            # init ran, then the monitor
-        self.assertEqual([p for p in t.port_writes if p[0] in (0xE8, 0xE9, 0xEA)][1:],
-                         [(0xE9, 0xFF), (0xEA, 0x67)])
+        # exactly what the 4P ROM does (EA control, E9 baud, E8 with a NONZERO value): MAME's UART is left at 5 data
+        # bits if E8 is written with 0, and this is the sequence known to talk to the PC on the real machine
+        self.assertEqual([p for p in t.port_writes if p[0] in (0xE8, 0xE9, 0xEA)],
+                         [(0xEA, 0x64), (0xE9, 0xFF), (0xE8, 0xFF)])
         self.assertIn("19200", dos.messages[0])
         self.assertFalse(t.cpu.iff)
 
