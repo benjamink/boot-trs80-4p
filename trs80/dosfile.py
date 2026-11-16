@@ -72,6 +72,6 @@ class DosLink:
         """Return to the LS-DOS prompt. The monitor never answers, so a missing reply is expected."""
         from trs80.monitor import MonitorError
         try:
-            self.mon.exec(ENTRY["exit"])
+            self.mon.exec(ENTRY["exit"], timeout=self.mon.timeout)
         except MonitorError:
             pass

@@ -344,6 +344,9 @@ clock_get:
           cp 9
           jr c,cg_bad              ; shorter than the simple format
           inc hl
+          ld a,(hl)                ; the format that was answered: must be 0 (simple)
+          or a
+          jr nz,cg_bad
           inc hl                   ; HL -> century
           ld a,(hl)
           sub 19
@@ -364,6 +367,27 @@ cg_c:     ld a,(hl)                ; month, day, hour, minute, second
           inc hl
           dec de
           djnz cg_c
+          ; sanity: a FujiNet that never got the time reports 1970, and a wrong layout must not reach LS-DOS
+          ld a,(v_ck+5)
+          cp 80                    ; year 1980 or later
+          jr c,cg_bad
+          ld a,(v_ck+4)
+          dec a
+          cp 12                    ; month 1-12
+          jr nc,cg_bad
+          ld a,(v_ck+3)
+          dec a
+          cp 31                    ; day 1-31
+          jr nc,cg_bad
+          ld a,(v_ck+2)
+          cp 24
+          jr nc,cg_bad
+          ld a,(v_ck+1)
+          cp 60
+          jr nc,cg_bad
+          ld a,(v_ck)
+          cp 60
+          jr nc,cg_bad
           or a
           ret
 cg_bad:   scf

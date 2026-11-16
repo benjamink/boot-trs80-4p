@@ -91,7 +91,7 @@ class FakeNio:
             status, payload = self._disk(p)
         elif p.device == CLOCK_DEVICE and p.command == CLOCK_GET_FORMAT and self.clock:
             y, mo, d, h, mi, sec = self.clock
-            status, payload = OK, bytes([1, p.payload[1], y // 100, y % 100, mo, d, h, mi, sec])      # simple format: century first
+            status, payload = OK, bytes([1, getattr(self, "clock_format_echo", p.payload[1]), y // 100, y % 100, mo, d, h, mi, sec])      # simple format: century first
         elif p.device == nd.FILE_DEVICE and p.command == nd.FILE_LIST_DIRECTORY:
             status, payload = self._files(p.payload)
         else:

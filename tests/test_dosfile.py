@@ -71,6 +71,15 @@ class DosLinkTests(unittest.TestCase):
         self.assertTrue(all(self.dos.interrupts_on_at_svc))               # on while LS-DOS runs
         self.assertFalse(self.t.cpu.iff)                                  # off while the monitor polls
 
+    def test_exit_does_not_wait_long_for_an_answer_that_never_comes(self):
+        waits, real = [], self.t.read
+        self.t.read = lambda timeout: (waits.append(timeout), real(timeout))[1]
+        try:
+            self.link.exit()
+        except DosExit:
+            pass
+        self.assertLessEqual(max(waits, default=0), 0.01)
+
     def test_exit_calls_exit_svc(self):
         with self.assertRaises(DosExit):
             self.link.exit()
