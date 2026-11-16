@@ -77,7 +77,7 @@ parses them). Adding native DMK support would be a firmware contribution.
    answers "Found Baud Rate", then 0xFF, then the load module at 19200 8O1; see `trs80boot.py`). It would need a new boot-service/transport mode in NIO (a contribution), or a
    small PC/bridge to do the first stage. This is now the main gap on the firmware side.
 3. **Floppy-less LS-DOS start-up:** unchanged; nothing in these repos helps. It is our own problem (see the plan's A/B/C options).
-4. **Licensing:** GPL-3.0 across the NIO repos (see above).
+4. **Licensing:** DECIDED by the owner (2026-11-16): GPL-3.0 is fine; this work is meant to be merged into or supplement the upstream fujinet-nio project (the owner is a contributor), so deriving from their client/driver code is allowed. Original finding: GPL-3.0 across the NIO repos (see above).
 5. **What the firmware must provide:** mount/read/write by LBA already exists. Missing: a way to deliver the 4P loader stage and (optionally) DMK images.
 
 ## Speed estimate for the RS-232-only path
@@ -89,8 +89,17 @@ beyond 19200. This supports the bus-card roadmap for speed.
 
 ## Proposed next steps
 
-1. Decide GPL stance for the 4P-side client (own implementation from the spec vs. derived code).
+1. ~~Decide GPL stance~~ Decided: GPL-3.0 is fine (upstream contribution). We may reuse/derive from `fujinet-nio-lib` and the MS-DOS/Amiga drivers; keep upstream's conventions.
 2. Read `file_device_protocol.md`, `slot_catalog_service_protocol.md`, `fuji_device_protocol.md`, `nio-config` source: what CONFIG on a 4P needs to list hosts/images and mount.
 3. With consent, build `fujibus-rs232-debug` in a scratch directory and run it against `/dev/ttyUSB0`, with a Python test client from this repo speaking FujiBus. That proves the PC-as-FujiNet development loop.
 4. Write the Z80 client (SLIP + FujiBus + DiskDevice Info/ReadSector) and test it in the emulator against NIO's `disk_device_test_vectors.md` vectors.
 5. Raise with the fujinet-nio maintainers (issue/discussion): "boot-over-serial host service for TRS-80 ROM loader" and DMK/JV3 image types, before writing firmware changes.
+
+## 4P ROM for emulation (owner's download, 2026-11-16)
+
+`~/Downloads/trs80m3.zip` is MAME's TRS-80 romset. The useful part is `trs80m4p/8075332.u69` (4096 bytes): the **Model 4P boot ROM**,
+banner `Boot ROM Version Is 1(16) 18-Oct-83`, and it contains the strings `Found Baud Rate` and `Loading `, i.e. the serial loader we use. Also `trs80m4p/8049007.u103` (2048 bytes,
+looks like the character generator). `trs80m4p_loader_hack.rom` (504 bytes) is a MAME-side stand-in and is not a real ROM; ignore it. The rest of the zip is Model III/4 ROMs.
+Copies of the two 4P files are in `images/roms/trs80m4p/` (git-ignored, never commit ROMs). Whether this version equals the owner's physical 4P is unknown; it can be dumped
+with the resident monitor (OUT (9Ch),0 maps the boot ROM in while executing from RAM; READ_MEM 0000h-0FFFh; then OUT (9Ch),1 to map it out; hardware must be in memory mode 0/1; see TRM "Hardware 69").
+Not yet tried: whether MAME's `trs80m4p` driver boots this ROM and exposes its RS-232 port to the host (e.g. via a pty or socket), which would give a no-hardware loop for the serial loader.
