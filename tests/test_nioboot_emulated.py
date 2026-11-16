@@ -102,6 +102,18 @@ class NiobootTests(unittest.TestCase):
         drv_entry = self.sym["drv_entry"]
         self.assertEqual(bytes(m[0x0470:0x047A]), bytes([0xC3, drv_entry & 255, drv_entry >> 8, 0x44, 0xC1, 0x15, 0x27, 0x11, 0x45, 0x14]))
 
+    def test_the_real_floppy_drives_1_to_7_are_disabled_so_ls_dos_does_not_probe_hardware_that_may_be_empty(self):
+        # on the 4P an empty drive makes LS-DOS's boot-time drive probe hang with the drive light on
+        self.run_to_boot_sector()
+        c, m = self.cpu, self.cpu.mem
+        for d in range(8):
+            m[0x0470 + 10 * d:0x047A + 10 * d] = bytes([0xC3, 0x3D, 0x0E, 0x44, 0xC1, 0x15, 0x27, 0x11, 0x45, 0x14])
+        c.set_rp(2, 3, 15); c.set_rp(4, 5, 0x1100)
+        c.run_call(m[0x4397] | m[0x4398] << 8, max_steps=60_000_000)
+        self.assertEqual(m[0x0470], 0xC3)                                       # drive 0 is the FujiNet
+        self.assertEqual([m[0x0470 + 10 * d] for d in range(1, 8)], [0xC9] * 7)  # "disabled": a RET
+        self.assertEqual(bytes(m[0x0473:0x047A]), bytes([0x44, 0xC1, 0x15, 0x27, 0x11, 0x45, 0x14]))
+
     def test_the_driver_serves_slot_1_whatever_dct_plus_5_says(self):
         self.run_to_boot_sector()
         self.assertEqual(self.cpu.mem[self.sym["v_slot"]], 1)
@@ -114,6 +126,12 @@ class NiobootTests(unittest.TestCase):
             self.assertNotEqual(c.pc, 0x4300)
         self.assertNotIn((0x9C, 0), self.out)
 
+
+    def test_a_banner_is_on_screen_as_soon_as_it_starts(self):
+        c = self.cpu
+        for _ in range(300):                                             # long before the first answer could arrive
+            c.step()
+        self.assertIn(b"nioboot", bytes(c.mem[0x3E00:0x3E40]))
 
     def test_a_link_that_comes_up_late_still_boots_and_the_wait_is_announced(self):
         saved = self.nio.slots.copy()
