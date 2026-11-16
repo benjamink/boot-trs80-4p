@@ -41,10 +41,12 @@ class DosLink:
         self.mon.write_mem(FCB, spec.encode() + b"\r" + bytes(47 - len(spec)))
 
     def put(self, name, data, drive=0, progress=None):
-        """Create (replacing any old copy) NAME/EXT on the drive with exactly these bytes."""
+        """Create (replacing any old copy) NAME/EXT on the drive with exactly these bytes.
+        Returns True if an existing file was replaced."""
         lsdosfs.split_name(name)                       # validate before touching anything
         self._spec(name, drive)
         ok, a = self._call("kill")
+        replaced = ok
         if not ok and a != ERR_FILE_NOT_FOUND:
             raise DosError(f"removing the old {name}", a)
         self._spec(name, drive)
@@ -64,6 +66,7 @@ class DosLink:
             ok, a = self._call("close")
         if not ok:
             raise DosError(f"closing {name}", a)
+        return replaced
 
     def exit(self):
         """Return to the LS-DOS prompt. The monitor never answers, so a missing reply is expected."""

@@ -26,3 +26,27 @@ Tools for a Model 4P connected to Linux by a null-modem cable (8 data bits, **od
 
 `./writedisk.py ... --probe-only` is a read-only check of the drive (present, tracks, sides).
 There is deliberately no `--yes` flag.
+
+## Sending files to the 4P once LS-DOS runs (SERIAL/CMD + trs80put.py)
+
+`SERIAL/CMD` is a program on the boot floppy that turns the 4P into a file receiver. It is the resident
+monitor with a small front end (sets the UART to 19200 baud, 8O1, then waits), and the files it receives
+are written by LS-DOS itself.
+
+1. Build the image and write only the two tracks that changed (about 1-2 minutes). This assumes the floppy
+   still holds exactly `L631NEW.DSK` as written earlier:
+
+       make
+       python3 tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out images/boot.dsk
+       # 4P: hold right-shift, press reset until "Ready"; then:
+       ./trs80mon.py boot
+       ./writedisk.py --image images/boot.dsk --base images/lsdos631l-upstream/L631NEW.DSK --drive 0
+
+   Type `ERASE DRIVE 0` when asked. Then press reset without right-shift to boot LS-DOS.
+2. At the LS-DOS prompt type `SERIAL`. The 4P prints `Serial link ready`.
+3. On the PC: `./trs80put.py game.cmd notes.txt` (add `--exit` to return the 4P to the LS-DOS prompt).
+   `PROG.CMD` becomes `PROG/CMD`; use `--as NAME/EXT` to choose a name, `--drive N` for another drive.
+   An existing file of the same name is replaced.
+
+While `SERIAL` runs, the 4P's interrupts are off (the clock and keyboard are idle); it ends with `--exit`
+or reset. To change the disk later, keep the image file you last wrote and pass it as `--base`.
