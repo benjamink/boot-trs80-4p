@@ -108,8 +108,9 @@ class NiobootTests(unittest.TestCase):
         c, m = self.cpu, self.cpu.mem
         for d in range(8):
             m[0x0470 + 10 * d:0x047A + 10 * d] = bytes([0xC3, 0x3D, 0x0E, 0x44, 0xC1, 0x15, 0x27, 0x11, 0x45, 0x14])
-        c.set_rp(2, 3, 15); c.set_rp(4, 5, 0x1100)
+        c.set_rp(2, 3, 15); c.set_rp(4, 5, 0x1100); c.set_rp(0, 1, 0x1234)
         c.run_call(m[0x4397] | m[0x4398] << 8, max_steps=60_000_000)
+        self.assertEqual((c.R[1], c.rp(2, 3)), (0x34, 15))                          # the boot sector relies on C and DE (cylinder, sector) surviving
         self.assertEqual(m[0x0470], 0xC3)                                       # drive 0 is the FujiNet
         self.assertEqual([m[0x0470 + 10 * d] for d in range(1, 8)], [0xC9] * 7)  # "disabled": a RET
         self.assertEqual(bytes(m[0x0473:0x047A]), bytes([0x44, 0xC1, 0x15, 0x27, 0x11, 0x45, 0x14]))

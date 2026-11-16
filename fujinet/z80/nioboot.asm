@@ -71,12 +71,18 @@ bsr_ok:   ld a,e
           ; DCT+5 is left alone: LS-DOS's boot code rewrites it.
           ld hl,drv_entry
           ld (0471h),hl
+          push bc                  ; the boot sector relies on BC, DE, HL surviving this routine
+          push de
+          push hl
           ld hl,047Ah              ; drives 1-7: disabled (DCT+0 = RET). LS-DOS probes every enabled floppy drive at the end of
           ld de,10                 ; its start-up, and on the 4P an empty drive hangs that probe (drive light on, seen on hardware).
           ld b,7                   ; FUJIDRV re-enables the drive it installs.
 dis_lp:   ld (hl),0C9h
           add hl,de
           djnz dis_lp
+          pop hl
+          pop de
+          pop bc
           push bc                  ; the FujiNet's clock gives LS-DOS its date, so it need not ask (see fujidrv.asm)
           push de
           push hl
