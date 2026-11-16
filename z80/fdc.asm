@@ -14,7 +14,7 @@
 ;      5 write fault, 6 write protect, 7 not ready.
 ; Write Track cannot carry data bytes F5/F6/F7 (they are controller commands), so tracks are
 ; formatted with filler and every sector is then written with Write Sector (A4, normal data mark).
-; Commands used: 03 restore (6..30 ms steps, no verify), 13 seek (no verify), C4 read address,
+; Commands used: 03 restore (6..30 ms steps, no verify), 17 seek (with verify, 15 ms head settle), C4 read address,
 ;      84 read sector, F4 write track, D0 force interrupt.
 ;
 ; Entry points (jump table): 8000 init, 8003 restore, 8006 seek, 8009 read_addr,
@@ -140,7 +140,7 @@ restore:  call select
 seek:     call select
           ld a,(PB_TRACK)
           out (F_DAT),a
-          ld a,13h
+          ld a,17h
           out (F_CMD),a
           jp finish
 

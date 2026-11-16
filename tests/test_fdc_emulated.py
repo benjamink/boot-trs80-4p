@@ -69,6 +69,12 @@ class FdcRoutineTests(unittest.TestCase):
         status, err = self.call("seek", track=17)
         self.assertEqual((self.fdc.track, err), (17, 0))
 
+    def test_seek_uses_verify_so_the_head_settles(self):
+        # 13h has no settle delay; with V set (17h) the controller waits 15 ms and checks the ID.
+        # Writing right after a bare step is a suspect for sporadic unreadable sectors.
+        self.call("seek", track=17)
+        self.assertEqual(self.fdc.commands, [0x17])
+
     def test_read_addr_returns_six_bytes(self):
         self.fdc.phys = 5
         status, err = self.call("read_addr", buf=0xC000)
