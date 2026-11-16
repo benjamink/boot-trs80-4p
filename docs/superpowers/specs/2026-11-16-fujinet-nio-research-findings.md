@@ -103,3 +103,39 @@ looks like the character generator). `trs80m4p_loader_hack.rom` (504 bytes) is a
 Copies of the two 4P files are in `images/roms/trs80m4p/` (git-ignored, never commit ROMs). Whether this version equals the owner's physical 4P is unknown; it can be dumped
 with the resident monitor (OUT (9Ch),0 maps the boot ROM in while executing from RAM; READ_MEM 0000h-0FFFh; then OUT (9Ch),1 to map it out; hardware must be in memory mode 0/1; see TRM "Hardware 69").
 Not yet tried: whether MAME's `trs80m4p` driver boots this ROM and exposes its RS-232 port to the host (e.g. via a pty or socket), which would give a no-hardware loop for the serial loader.
+
+## Verified results (2026-11-16, second pass)
+
+### PC-as-FujiNet loop works (no FujiNet hardware needed)
+Recipe, all in a scratch directory (nothing installed system-wide):
+```
+git clone --depth 1 https://github.com/fujinet-nio/fujinet-nio && cd fujinet-nio
+git submodule update --init --depth 1 third_party/yaml-cpp third_party/cjson
+cmake --preset fujibus-rs232-debug && cmake --build build/fujibus-rs232-debug     # ~3 min, built cleanly
+cd build/fujibus-rs232-debug
+socat pty,raw,echo=0,link=ptyA pty,raw,echo=0,link=ptyB &                         # a pty pair stands in for the cable
+FN_SERIAL_PORT=$PWD/ptyA FN_SERIAL_BAUD=19200 ./fujinet-nio &                      # "host:" filesystem = ./fujinet-data
+```
+Replace the pty with `/dev/ttyUSB0` (null-modem to the 4P) to talk to the real machine. NIO logs `[SerialChannel] Opened ... at 19200 baud, 8 data bits`
+(parity comes from `fujinet.yaml`, not yet checked for odd parity).
+- NIO's own Python tool (`scripts/fujinet`, `uv`-managed venv) works against it: `fuji info`, `disk mount --slot 1 --type raw --sector-size 256 host:/images/ls631.img`, `disk info`, `disk read-sector`.
+- **Our LS-DOS image served as a raw 256-byte-sector file** (LBA = cylinder*18 + sector, 720 sectors) mounts fine and sectors compare equal to the DMK source.
+- **Our reference codec** (`trs80/fujibus.py`, `trs80/niodisk.py`) agrees with the live NIO, including its error answers (read past end: status 2 InvalidRequest, DiskError 12 OutOfRange).
+- **Our Z80 client** (`z80/nioclient.asm`, in the Z80 interpreter, UART bridged to the pty by `tools/nio_live_check.py`) read 9 sectors correctly, got the right
+  refusal past the end, and wrote a pattern with C0/DB bytes to the last sector, read it back identical and restored it. Emulator tests (16, with fault injection) cover
+  checksum errors, lost answers, retries, descriptors, oversize answers and noise; four deliberate mutations of the asm were each caught by the tests.
+
+### What CONFIG on the 4P will need (from the protocol docs and the Atari CONFIG design, `nio-config/docs/atari-config.md`)
+Atari CONFIG is four tabs: **Hosts** (up to 8 filesystems: `sd0:/`, `host:/`, `tnfs://...`, `http://...`), **Browse** (a host's directory, paged), **Drives** (D1-D8 images; eject, write-protect), **Setup** (Wi-Fi). It *boots*:
+pick images, assign to drives, press OPTION; it mounts every assigned drive and restarts the host.
+Mapping to services: Hosts = `HostService` 0xF0 (GetCurrent/SetCurrent/ListHistory...) and `SlotCatalogService` 0xF2 (Get/Put/Delete/Range, 256 sparse catalogue entries);
+Browse = `FileDevice` 0xFE (`ListDirectory` 0x02, paged `ListPages` 0x07, `Stat`, `ResolvePath`); Drives = `DiskDevice` 0xFC (`Mount`, `Unmount`, `ListMounts` 0x0D);
+Setup = the Wi-Fi service (`docs/wifi_service_protocol.md`, not read); firmware identity = `FujiDevice` 0x70 `GetInfo`.
+For a 4P CONFIG the same client (`nio_request`) carries every one of these; only Mount/Unmount/Info/Read/Write have typed wrappers so far.
+
+### Updated next steps
+1. Z80 wrappers for Mount, Unmount, ListMounts, FileDevice ListPages (CONFIG), then a text-mode CONFIG sketch.
+2. Check `fujinet.yaml` for odd parity (8O1) and the RS-232 TX pacing defaults (16-byte chunks with 2 ms gaps) against the 4P's unbuffered UART (the 4P UART has no FIFO: a byte not read within ~520 us at 19200 is lost).
+3. Real-hardware test of `nioclient.asm` (owner): loader -> monitor -> client reading sectors from the PC-hosted NIO over the real cable.
+4. Boot-loader host service (NIO or PC helper) and the floppy-less LS-DOS start-up decision (plan Phase 1/3).
+5. Contact upstream about the TRS-80 ROM-loader boot service and DMK/JV3 images.
