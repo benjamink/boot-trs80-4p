@@ -46,6 +46,23 @@ class Mame4P:
         with open(self.ctl + ".cmd", "a") as f:
             f.write("keys " + text.replace("\n", "\\n") + "\n")
 
+    def peek(self, addr, count, timeout=10):
+        """Read `count` bytes of the 4P's memory (as the CPU sees it right now) through MAME."""
+        try:
+            os.remove(self.ctl + ".peek")
+        except FileNotFoundError:
+            pass
+        with open(self.ctl + ".cmd", "a") as f:
+            f.write(f"peek {addr:X} {count}\n")
+        end = time.time() + timeout
+        while time.time() < end:
+            try:
+                with open(self.ctl + ".peek") as f:
+                    return bytes.fromhex(f.read())
+            except (FileNotFoundError, ValueError):
+                time.sleep(0.2)
+        raise TimeoutError("no peek answer")
+
     def wait_for(self, text, timeout=120):
         end = time.time() + timeout
         while time.time() < end:

@@ -17,7 +17,7 @@ from trs80.lmf import build_lmf, parse_hex  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAME = "SERIAL/CMD"
 DROP = ("HELP/CMD", "DOS/HLP")                 # the help system: makes room, the disk is otherwise full
-TOOLS = ("fmount", "fumount", "fdrive", "fls")        # LS-DOS commands for the FujiNet: z80/<name>.asm, entry 3000h
+TOOLS = ("fmount", "fumount", "fdrive", "fls", "fujidrv_cmd")        # LS-DOS commands for the FujiNet: z80/<name>.asm, entry 3000h
 
 
 def serial_cmd(build_dir=os.path.join(ROOT, "build")):
@@ -44,7 +44,7 @@ def make_boot_image(base, out, build_dir=os.path.join(ROOT, "build"), drop=DROP)
             new = lsdosfs.delete_file(new, name)
     new = lsdosfs.add_file(new, NAME, blob)
     for tool in TOOLS:
-        new = lsdosfs.add_file(new, tool.upper() + "/CMD", tool_cmd(tool, build_dir))
+        new = lsdosfs.add_file(new, tool.split("_")[0].upper() + "/CMD", tool_cmd(tool, build_dir))
     if not lsdosfs.is_bootable(new):
         raise RuntimeError("result is not bootable")
     with open(out, "wb") as f:
@@ -60,7 +60,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     n = make_boot_image(a.base, a.out, drop=() if a.keep_help else DROP)
     dropped = "" if a.keep_help else f"; removed {' and '.join(DROP)} to make room"
-    print(f"wrote {a.out}: added {NAME} ({n} bytes) and {', '.join(t.upper() + '/CMD' for t in TOOLS)}{dropped}")
+    print(f"wrote {a.out}: added {NAME} ({n} bytes) and {', '.join(t.split('_')[0].upper() + '/CMD' for t in TOOLS)}{dropped}")
 
 
 if __name__ == "__main__":

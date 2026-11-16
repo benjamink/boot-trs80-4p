@@ -18,6 +18,16 @@ class RealImageTests(unittest.TestCase):
         cls.imgs = {os.path.basename(p): load(p) for p in IMAGES}
         cls.ld4 = cls.imgs["LD4-631.DSK"]
 
+    def test_flat_image_is_cylinder_major_256_byte_sectors(self):
+        flat = lsdosfs.flat_image(self.ld4)
+        self.assertEqual(len(flat), 40 * 18 * 256)
+        boot = lsdosfs._Geometry.sector(self.ld4, 0, 0)
+        self.assertEqual(flat[:256], boot)
+        gat = lsdosfs._Geometry.sector(self.ld4, 20, 0)
+        self.assertEqual(flat[(20 * 18) * 256:(20 * 18 + 1) * 256], gat)
+        s5 = lsdosfs._Geometry.sector(self.ld4, 7, 5)
+        self.assertEqual(flat[(7 * 18 + 5) * 256:(7 * 18 + 6) * 256], s5)
+
     def test_lists_known_system_files(self):
         files = {f"{e.name}/{e.ext}": e for e in lsdosfs.list_files(self.ld4)}
         print("\nLD4-631.DSK:", ", ".join(sorted(files)))

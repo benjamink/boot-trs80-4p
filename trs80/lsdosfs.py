@@ -92,6 +92,17 @@ def _live(e):
     return bool(e[0] & 0x10) and not e[0] & 0x80
 
 
+def flat_image(img):
+    """The disk as plain 256-byte sectors in cylinder order (LBA = cylinder * sectors-per-cylinder + sector), the layout a
+    FujiNet raw image has and the FujiNet driver addresses. Single-sided images only."""
+    g = _Geometry(img)
+    out = bytearray()
+    for cyl in range(img.tracks):
+        for k in range(g.spc):
+            out += g.logical(cyl, k)
+    return bytes(out)
+
+
 def list_files(img):
     g = _Geometry(img)
     out = []

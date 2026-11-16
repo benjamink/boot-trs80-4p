@@ -28,11 +28,15 @@
 ;     to the address in +5,+6 (room for 240 bytes), its length put in +9,+10, entries in +29,+30 and +28 = 1
 ;     if more follow. Errors as above.
 
+; Buffer addresses: a program that says DEFINE NIO_EXTERNAL must define NIO_TX, NIO_RX, RX_MAX, PB and PAY itself
+; (the resident driver puts them inside its own image); otherwise the fixed addresses used by the command-line programs apply.
+          IFNDEF NIO_EXTERNAL
 NIO_TX    equ 0A000h               ; raw request packet, up to 0x300 bytes
-NIO_RX    equ 0A300h               ; raw response packet, up to 0x300 bytes
+NIO_RX    equ 0A300h               ; raw response packet, up to RX_MAX-1 bytes (high byte of the count is checked)
 RX_MAX    equ 0300h
 PB        equ 9F00h
 PAY       equ 9F20h                ; scratch for small payloads
+          ENDIF
 
 UART_ST   equ 0EAh
 UART_DATA equ 0EBh
