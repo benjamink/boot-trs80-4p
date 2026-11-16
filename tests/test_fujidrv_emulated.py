@@ -150,7 +150,23 @@ class DriverTests(unittest.TestCase):
     def test_no_answer_is_a_read_or_write_error_not_a_hang(self):
         self.nio.mangle = [lambda w: b""] * 12
         self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (E_RERR, True))
-        self.assertEqual(self.call(WRSEC, cyl=1, sec=1), (E_WERR, True))
+
+    def test_after_a_transport_failure_calls_fail_fast_then_the_link_is_tried_again(self):
+        # a missing FujiNet must not freeze the machine for 3 tries x 4 s on every call, with interrupts off
+        self.nio.mangle = [lambda w: b""] * 100
+        self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (E_RERR, True))
+        sent = len(self.nio.requests)
+        self.assertEqual(sent, 3)                                       # the one full attempt
+        for _ in range(7):
+            self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (E_NODEV, True))
+        self.assertEqual(len(self.nio.requests), sent)                  # ... and then nothing goes out
+        self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (E_RERR, True))  # the 9th call looks again
+        self.assertEqual(len(self.nio.requests), sent + 3)
+        self.nio.mangle = []                                            # the FujiNet is back
+        for _ in range(7):
+            self.call(RDSEC, cyl=1, sec=1)
+        self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (0, False))
+        self.assertEqual(self.call(RDSEC, cyl=1, sec=1), (0, False))     # and stays up
 
     def test_one_corrupted_answer_is_retried_transparently(self):
         self.nio.mangle = [lambda w: bytes(w[:5]) + bytes([w[5] ^ 1]) + bytes(w[6:])]

@@ -81,8 +81,23 @@ ei_off:   ld (v_ei),a
           pop bc
 no_time:
           ENDIF
-          call dispatch
-          pop hl
+          ld a,(v_dead)
+          or a
+          jr z,try_link
+          dec a                    ; the FujiNet did not answer a moment ago: fail fast instead of waiting 3 x 4 s with
+          ld (v_dead),a            ; interrupts off, and only look again every 8th call
+          ld a,E_NODEV
+          or a                     ; NZ
+          jr drv_done
+try_link: call dispatch
+          push af
+          ld a,(v_xerr)
+          or a
+          jr z,link_ok
+          ld a,7
+          ld (v_dead),a
+link_ok:  pop af
+drv_done: pop hl
           pop de
           pop bc
           push af
@@ -407,6 +422,7 @@ v_mask:   db 0
 v_ei:     db 0
 v_slot:   db 1                     ; FujiNet slot this copy of the driver serves; FUJIDRV writes it after copying
 ready_mask: db 0
+v_dead:   db 0                     ; calls left to fail fast after a transport failure
 
 ; ---- the FujiNet client, with its buffers placed after the image ------------------------------------------
           DEFINE NIO_EXTERNAL
