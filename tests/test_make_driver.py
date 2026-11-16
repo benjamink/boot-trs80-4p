@@ -31,6 +31,7 @@ class DriverPackageTests(unittest.TestCase):
         self.assertEqual(p.blob[4:8], bytes([3]) + b"$FJ")
         self.assertGreater(p.total, len(p.blob) + 0x300)                # room for the buffers after the image
         self.assertLess(p.total, 0x1000)
+        self.assertTrue(0 < p.slot < len(p.blob))                       # where the installer writes the FujiNet slot
         self.assertTrue(0 < p.entry < len(p.blob))                      # drv_entry offset from the module start
         self.assertEqual(len(p.relocs), len(set(p.relocs)))
         self.assertTrue(all(0 <= r < len(p.blob) - 1 for r in p.relocs))
@@ -81,7 +82,7 @@ class InstallerTests(unittest.TestCase):
         dct = 0x0470 + 20
         self.assertEqual(m[dct], 0xC3)
         self.assertEqual(m[dct + 1] | m[dct + 2] << 8, base + self.pkg.entry)
-        self.assertEqual(m[dct + 5], 3)                                   # NIO slot = drive + 1
+        self.assertEqual(m[base + self.pkg.slot], 3)                      # NIO slot = drive + 1, in the driver's own image
         self.assertEqual(list(m[dct + 6:dct + 10]), [39, 17, 0x45, 20])
         self.assertEqual(m[base], 0x18)
         self.assertIn("$FJ", bytes(m[base + 5:base + 8]).decode())
@@ -94,6 +95,7 @@ class InstallerTests(unittest.TestCase):
         h1 = self.dos.high
         rc, _ = self.run_installer("FUJIDRV 3", high=h1)
         self.assertEqual(rc, 0)
+        self.assertEqual(self.cpu.mem[h1 - self.pkg.total + 1 + self.pkg.slot], 4)
         self.assertEqual(self.dos.high, h1 - self.pkg.total)
 
     def test_bad_drive_is_a_usage_error_and_changes_nothing(self):

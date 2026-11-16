@@ -74,6 +74,11 @@ emu.register_frame_done(function()
             local t = {}
             for i = 0, tonumber(n) - 1 do t[#t + 1] = string.format("%02X", sp:read_u8(tonumber(a, 16) + i)) end
             write_file(ctl .. ".peek", table.concat(t, " "))
+          elseif line == "shiftup" then rshift:set_value(0)       -- let go of Right Shift (serial mode holds it until told)
+          elseif line == "pc" then
+            -- "pc" -> <ctl>.pc : the Z80 program counter and stack pointer, hex
+            local st = m.devices[":maincpu"].state
+            write_file(ctl .. ".pc", string.format("%04X %04X", st["PC"].value, st["SP"].value))
           elseif line:sub(1, 5) == "keys " then m.natkeyboard:post((line:sub(6):gsub("\\n", "\n"))) end
         end
       end

@@ -71,6 +71,16 @@ serial disk driver exists (plan phase 2) LS-DOS cannot read a mounted drive: the
 Z80 interpreter and against a real fujinet-nio on a PC (`fujinet/cli_live.py`), not yet on the 4P itself.
 The code lives in `fujinet/` (see its README). Unknown on hardware: whether LS-DOS passes the command line in its original case (URIs are case-sensitive).
 
+## Booting with no floppy (fujinet/z80/nioboot.asm) - works in MAME, not yet on hardware
+
+`nioboot` is a loader for the ROM's serial loader (hold Right Shift at reset, send it with `trs80boot.py build/nioboot.hex --entry 0x5000`).
+It reads the LS-DOS boot sector from FujiNet slot 1 (a raw 256-byte-sector image, 18 per cylinder; `trs80.lsdosfs.flat_image` makes one
+from a DMK) instead of a floppy, patches the boot sector's one floppy-controller routine to fetch sectors from the FujiNet, and once
+BOOT/SYS's drive table is loaded points drive 0 at the resident driver (`fujidrv.asm`, at E000h). LS-DOS then loads and runs entirely
+from the FujiNet. In MAME with no disk at all it reaches the date prompt in about 10 seconds, and `DIR :0` works.
+
+Known gap: the driver sits at E000h without HIGH$ being lowered, so a program that uses the top of memory can overwrite it.
+
 ## Testing without the 4P: MAME
 
 MAME's `trs80m4p` runs the real 4P boot ROM and real LS-DOS, with an RS-232 port that `tools/mame4p.py` exposes as a pty

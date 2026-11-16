@@ -41,15 +41,15 @@ nocolon:  ld a,(hl)
           jp nz,fail
           ; ---- copy the image
           ld bc,(pkg)              ; image length
-          ld hl,pkg+8
-          ld de,(pkg+6)
+          ld hl,pkg+10
+          ld de,(pkg+8)
           add hl,de
           add hl,de                ; skip the relocation table (count words)
           ld de,(base)
           ldir
           ; ---- relocate
-          ld bc,(pkg+6)
-          ld hl,pkg+8
+          ld bc,(pkg+8)
+          ld hl,pkg+10
 rel_loop: ld a,b
           or c
           jr z,rel_done
@@ -76,7 +76,14 @@ rel_loop: ld a,b
           pop bc
           dec bc
           jr rel_loop
-rel_done: ; ---- DCT
+rel_done: ; ---- this copy's FujiNet slot, in its own image
+          ld hl,(base)
+          ld de,(pkg+6)
+          add hl,de
+          ld a,(drive)
+          inc a
+          ld (hl),a
+          ; ---- DCT
           ld a,(drive)
           ld c,a
           ld a,81                  ; @GTDCT
@@ -89,9 +96,7 @@ rel_done: ; ---- DCT
           ld (iy+2),h
           ld (iy+3),44h            ; double density, not write protected
           ld (iy+4),50h            ; double-density capable, alien controller
-          ld a,(drive)
-          inc a
-          ld (iy+5),a              ; FujiNet slot
+          ld (iy+5),0              ; current cylinder (LS-DOS's own bookkeeping)
           ld (iy+6),39             ; last cylinder
           ld (iy+7),17             ; sectors per cylinder - 1
           ld (iy+8),45h            ; 3 granules per track, 6 sectors per granule

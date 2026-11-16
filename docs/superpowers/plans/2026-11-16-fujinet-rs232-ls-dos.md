@@ -67,6 +67,7 @@ such ROM; its ROM only has a serial **loader**, so the "driver" must be sent int
 - Done when: a 4P with LS-DOS booted from a floppy can mount a PC-served image as an extra drive and `DIR` it (interim approach C, for development).
 
 ### Phase 3 — floppy-less boot
+**Status (emulation):** approach A works in MAME (nioboot.asm, see README). Boot sector = cylinder 0 sector ID 1, loaded by the ROM at 4300h; it drives the WD FDC directly in one routine at 4396h, so patching that routine plus drive 0's DCT vector is enough. Still to do: protect the driver (lower HIGH$ / find a safe address), hardware test, serve the image from real NIO (needs a boot-loader host service), speed.
 - Implement the chosen boot approach (A or B). Boot LS-DOS to the date prompt with no floppy in the machine; `DIR`, run programs.
 - Done when: power on, send nothing but what the FujiNet sends, reach the LS-DOS prompt with the 4P having no disk media.
 

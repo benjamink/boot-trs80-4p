@@ -15,7 +15,11 @@ build/fujidrv_cmd.hex: fujinet/z80/fujidrv_cmd.asm build/fujidrv.pkg
 	@mkdir -p build
 	sjasmplus --nologo --msg=err -I fujinet/z80 --lst=build/fujidrv_cmd.lst --sym=build/fujidrv_cmd.sym --hex=$@ $<
 
-all: build/fujidrv_cmd.hex build/mon.hex build/dosio.hex build/serialcmd.hex build/nioclient.hex build/fmount.hex build/fumount.hex build/fdrive.hex build/fls.hex
+build/nioboot.hex: fujinet/z80/nioboot.asm fujinet/z80/fujidrv.asm fujinet/z80/nioclib.asm
+	@mkdir -p build
+	sjasmplus --nologo --msg=err -I fujinet/z80 --lst=build/nioboot.lst --sym=build/nioboot.sym --hex=$@ $<
+
+all: build/nioboot.hex build/fujidrv_cmd.hex build/mon.hex build/dosio.hex build/serialcmd.hex build/nioclient.hex build/fmount.hex build/fumount.hex build/fdrive.hex build/fls.hex
 clean:
 	rm -rf build
 .PHONY: all clean
