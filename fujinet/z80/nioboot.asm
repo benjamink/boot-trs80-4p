@@ -27,19 +27,25 @@ start:    di
           ld a,1
           ld (4055h),a             ; what the ROM leaves behind for a floppy boot: boot type 1 ...
           ld (4056h),a             ; ... and 256-byte boot sector
-          ld de,1                  ; cylinder 0, sector ID 1
+retry:    ld de,1                  ; cylinder 0, sector ID 1
           ld hl,BOOTSEC
           call bs_read
           and 1Ch
-          jr nz,dead
-          ld a,0C3h                ; JP bs_read over the boot sector's own FDC routine
+          jr z,ok
+          ld hl,waiting            ; no FujiNet answer yet: say so, then keep trying (start fujinet-nio or move the cable)
+          ld de,3E80h
+          ld bc,waiting_end-waiting
+          ldir
+          jr retry
+ok:          ld a,0C3h                ; JP bs_read over the boot sector's own FDC routine
           ld (BS_READ),a
           ld hl,bs_read
           ld (BS_READ+1),hl
           xor a
           out (9Ch),a              ; boot ROM out, RAM in
           jp BOOTSEC
-dead:     jr dead                  ; no FujiNet answer: stay in the ROM's screen state
+waiting:  db "Waiting for FujiNet..."
+waiting_end:
 
 ; D = cylinder, E = sector, HL = destination. Preserves BC, DE, HL; returns A = 0 when read, else an LS-DOS error number.
 bs_read:  push iy

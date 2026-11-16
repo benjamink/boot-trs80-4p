@@ -148,6 +148,27 @@ class NioClientTests(unittest.TestCase):
         self.assertEqual(self.result()["error"], 0)
         self.assertEqual(len(self.nio.requests), 2)
 
+    # ---- stale answers: a FujiNet slower than the timeout answers the first try as well as the retry
+    def stale(self, command, payload):
+        return fb.slip_encode(fb.build_response(nd.DEVICE, command, 0, payload))
+
+    def test_an_answer_to_another_command_is_discarded_and_the_real_one_awaited(self):
+        old = self.stale(nd.D_INFO if hasattr(nd, "D_INFO") else 5, nd.info_response(1, 256, 720))
+        self.nio.mangle = [lambda w: old + w]
+        self.pb(lba=5)
+        self.call("read")
+        self.assertEqual(self.result()["error"], 0)
+        self.assertEqual(bytes(self.cpu.mem[BUF:BUF + 256]), bytes(self.nio.slots[1][0][5 * 256:6 * 256]))
+        self.assertEqual(len(self.nio.requests), 1)
+
+    def test_a_read_answer_for_another_sector_is_never_delivered(self):
+        old = self.stale(3, nd.read_response(1, 3, bytes(self.nio.slots[1][0][3 * 256:4 * 256])))
+        self.nio.mangle = [lambda w: old + w]
+        self.pb(lba=5)
+        self.call("read")
+        self.assertEqual(self.result()["error"], 0)
+        self.assertEqual(bytes(self.cpu.mem[BUF:BUF + 256]), bytes(self.nio.slots[1][0][5 * 256:6 * 256]))
+
     def test_gives_up_after_three_tries_with_the_last_error(self):
         flip = lambda w: w[:5] + bytes([w[5] ^ 1]) + w[6:]
         self.nio.mangle = [flip, flip, flip, flip]
