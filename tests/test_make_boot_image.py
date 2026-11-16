@@ -1,6 +1,6 @@
 import os, shutil, subprocess, tempfile, unittest
 
-from tools.make_boot_image import NAME, make_boot_image, serial_cmd
+from tools.make_boot_image import DROP, NAME, make_boot_image, serial_cmd, tool_cmd
 from trs80 import lsdosfs
 from trs80.dmk import parse_dmk
 
@@ -35,6 +35,21 @@ class BootImageTests(unittest.TestCase):
         self.assertEqual(blob, serial_cmd())
         self.assertEqual(blob[-4:], bytes([0x02, 0x02, 0x00, 0x5F]))       # transfer address 5F00h
 
+    def test_the_fujinet_commands_are_on_the_disk_as_load_modules_entering_at_3000h(self):
+        make_boot_image(BASE, self.out)
+        img = parse_dmk(rd(self.out))
+        for name in ("FMOUNT/CMD", "FUMOUNT/CMD", "FDRIVE/CMD", "FLS/CMD"):
+            blob = lsdosfs.read_file(img, name)
+            self.assertEqual(blob, tool_cmd(name.split("/")[0].lower()), name)
+            self.assertEqual(blob[-4:], bytes([0x02, 0x02, 0x00, 0x30]), name)
+        self.assertEqual(lsdosfs.check_hit(img), [])
+
+    def test_the_help_system_is_removed_to_make_room_unless_asked_to_keep_it(self):
+        make_boot_image(BASE, self.out)
+        names = [f"{f.name}/{f.ext}" for f in lsdosfs.list_files(parse_dmk(rd(self.out)))]
+        self.assertFalse(set(DROP) & set(names))
+        self.assertIn("BASIC/CMD", names)                                # nothing else went
+
     def test_base_image_is_left_untouched(self):
         before = rd(BASE)
         make_boot_image(BASE, self.out)
@@ -45,7 +60,7 @@ class BootImageTests(unittest.TestCase):
         old, new = parse_dmk(rd(BASE)), parse_dmk(rd(self.out))
         for f in lsdosfs.list_files(old):
             n = f"{f.name}/{f.ext}"
-            if n != "DIR/SYS":
+            if n != "DIR/SYS" and n not in DROP:
                 self.assertEqual(lsdosfs.read_file(new, n), lsdosfs.read_file(old, n), n)
 
 

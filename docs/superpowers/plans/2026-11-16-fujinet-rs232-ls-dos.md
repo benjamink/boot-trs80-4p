@@ -88,3 +88,20 @@ such ROM; its ROM only has a serial **loader**, so the "driver" must be sent int
 ## Deliverables per phase
 
 Each phase ends with: tests (emulator-based where possible), README section, committed code, a ledger line, and the owner's hardware confirmation for anything touching the 4P.
+
+## LS-DOS command-line utilities (booting straight to LS-DOS, not CONFIG)
+
+Owner's point: without CONFIG there must be CLI tools. nio-core-apps already defines the set (`fls fmount fumount
+fdrive fhost fin fout fboot fapp`); the 4P versions follow the same names and meaning.
+
+Done (2026-11-16), as LS-DOS `/CMD` programs at 3000h built from `z80/fcli.asm` + `z80/nioclib.asm`, tested in the
+Z80 interpreter (`tests/test_cli_emulated.py`) and live against fujinet-nio (`tools/cli_live.py`):
+`FLS` (FileDevice ListDirectory, text mode), `FMOUNT :d uri [RO|RW] [SS=n]`, `FUMOUNT :d`, `FDRIVE` (ListMounts).
+Drive `:d` = DiskDevice slot d+1. They are added to the boot image by `tools/make_boot_image.py`, which removes
+`HELP/CMD` and `DOS/HLP` because the base disk is otherwise full.
+
+Still to do: `FHOST`/`FIN`/`FOUT` (host and slot-catalog services: SlotCatalogService 0xF2, HostService 0xF0),
+`FBOOT` (RestoreBoot/BeginHostSession), `FAPP` (AppStoreService). `FMOUNT` here takes a URI directly where the
+nio-core-apps one takes a catalog slot: the catalog-slot form arrives with `FIN`. Hardware checks: command-line
+case under LS-DOS; the programs and the future resident driver both own the UART, so a driver must hand it over
+cleanly (or the commands become calls into the driver).

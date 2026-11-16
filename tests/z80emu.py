@@ -152,6 +152,14 @@ class Z80:
             d = self.fetch(); d -= 256 if d > 127 else 0
             if op == 0x18 or self.cond((op >> 3) & 3):
                 self.pc = (self.pc + d) & 0xFFFF
+        elif op == 0xE3:                                # EX (SP),HL
+            lo, hi = self.mem[self.sp], self.mem[(self.sp + 1) & 0xFFFF]
+            self.mem[self.sp], self.mem[(self.sp + 1) & 0xFFFF] = R[5], R[4]
+            R[5], R[4] = lo, hi
+        elif op == 0x17:                                # RLA
+            c = R[7] >> 7
+            R[7] = ((R[7] << 1) | (self.F & C)) & 255
+            self.F = (self.F & (S | Z | PV)) | c
         elif op == 0x1F:                                # RRA
             c = R[7] & 1
             R[7] = (R[7] >> 1) | ((self.F & C) << 7)
