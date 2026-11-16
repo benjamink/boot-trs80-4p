@@ -4,6 +4,7 @@ from fujinet import niodisk as nd
 
 OK, DEVICE_NOT_FOUND, INVALID_REQUEST, DEVICE_BUSY, NOT_READY, IO_ERROR, TIMEOUT, INTERNAL, UNSUPPORTED = range(9)
 CLOCK_DEVICE, CLOCK_GET_FORMAT = 0x45, 0x03
+NOT_FOUND_STATUS = 1
 ERR_NOT_MOUNTED, ERR_OUT_OF_RANGE, ERR_READ_ONLY, ERR_FILE_NOT_FOUND = 10, 12, 11, 4
 
 
@@ -15,6 +16,8 @@ class FakeNio:
         self.slots = {}                       # slot -> [bytearray image, readonly]
         self.requests = []                    # decoded request packets, in arrival order
         self.clock = None                     # (year, month, day, hour, minute, second) the Clock device reports; None = no clock device
+        self.appstore = {}                    # (namespace, key) -> bytes, the AppStore device (F1h)
+        self.catalog = {}                     # index -> (flags, uri), the SlotCatalog device (F2h)
         self.mangle = []                      # queue of callables(response_wire) -> wire (fault injection); None = pass
 
     def mount(self, slot, image, readonly=False):
@@ -72,6 +75,70 @@ class FakeNio:
         return OK, bytes([1, 4 | (k < len(lines))]) + (0).to_bytes(2, "little") + start.to_bytes(2, "little") \
             + k.to_bytes(2, "little") + len(out).to_bytes(2, "little") + out
 
+    def _appstore(self, p):
+        """AppStore v1 (fujinet-nio docs/host_service_protocol.md): 1 stat, 2 read, 3 write, 4 delete, 5 list."""
+        pl, u16 = p.payload, lambda b, o: b[o] | b[o + 1] << 8
+        nl = u16(pl, 1)
+        ns = bytes(pl[3:3 + nl]).decode()
+        kl = u16(pl, 3 + nl)
+        key = bytes(pl[5 + nl:5 + nl + kl]).decode()
+        off = 5 + nl + kl
+        data = self.appstore.get((ns, key))
+        if p.command == 1:
+            return OK, bytes([1, data is not None]) + bytes(2) + len(data or b"").to_bytes(8, "little") + bytes(8)
+        if p.command == 2:
+            at, room = int.from_bytes(pl[off:off + 4], "little"), u16(pl, off + 4)
+            if data is None:
+                return OK, bytes([1, 0]) + bytes(2) + at.to_bytes(4, "little") + bytes(2)
+            chunk = data[at:at + room]
+            eof = at + len(chunk) >= len(data)
+            return OK, bytes([1, 2 | eof]) + bytes(2) + at.to_bytes(4, "little") + len(chunk).to_bytes(2, "little") + chunk
+        if p.command == 3:
+            at, n = int.from_bytes(pl[off:off + 4], "little"), u16(pl, off + 4)
+            cur = bytearray(data or b"")
+            cur[at:at + n] = pl[off + 6:off + 6 + n]
+            self.appstore[(ns, key)] = bytes(cur)
+            return OK, bytes([1, 0]) + bytes(2) + at.to_bytes(4, "little") + n.to_bytes(2, "little")
+        if p.command == 4:
+            gone = self.appstore.pop((ns, key), None) is not None
+            return OK, bytes([1, gone]) + bytes(2)
+        return UNSUPPORTED, b""
+
+    def _catalog(self, p):
+        """SlotCatalog v1 (docs/slot_catalog_service_protocol.md): 1 get, 2 put, 3 delete."""
+        pl = p.payload
+        idx = pl[1]
+        if p.command == 1:
+            if idx not in self.catalog:
+                return NOT_FOUND_STATUS, b""
+            flags, uri = self.catalog[idx]
+            return OK, bytes([1, flags, idx]) + len(uri).to_bytes(2, "little") + uri.encode()
+        if p.command == 2:
+            n = pl[3] | pl[4] << 8
+            self.catalog[idx] = (pl[2] | 1, bytes(pl[5:5 + n]).decode())
+            flags, uri = self.catalog[idx]
+            return OK, bytes([1, flags, idx]) + len(uri).to_bytes(2, "little") + uri.encode()   # the stored entry
+        if p.command == 3:
+            self.catalog.pop(idx, None)
+            return OK, b""
+        if p.command == 4:                                     # Range: presence bitmap, then the entries from `cursor`
+            lower, upper, cursor, maxuri = pl[1], pl[2], pl[3], pl[5]
+            room = pl[6] | pl[7] << 8
+            bits = bytearray((upper - lower) // 8 + 1)
+            for i in self.catalog:
+                if lower <= i <= upper:
+                    bits[(i - lower) // 8] |= 1 << ((i - lower) % 8)
+            out, count, nxt, more = b"", 0, upper + 1, 0
+            for i in sorted(k for k in self.catalog if cursor <= k <= upper):
+                flags, uri = self.catalog[i]
+                e = bytes([i, flags, len(uri[:maxuri])]) + uri[:maxuri].encode()
+                if len(bits) + len(out) + len(e) > room:
+                    nxt, more = i, 1
+                    break
+                out += e; count += 1
+            return OK, bytes([1, more, nxt & 0xFF, len(bits), count]) + len(out).to_bytes(2, "little") + bytes(bits) + out
+        return UNSUPPORTED, b""
+
     @staticmethod
     def _entry(line):
         """'d    0 Nov 16 09:00 utils/' -> eflags, nameLen, name, size(4), reserved(4), mtime(4), reserved(4)."""
@@ -113,6 +180,10 @@ class FakeNio:
         elif p.device == CLOCK_DEVICE and p.command == CLOCK_GET_FORMAT and self.clock:
             y, mo, d, h, mi, sec = self.clock
             status, payload = OK, bytes([1, getattr(self, "clock_format_echo", p.payload[1]), y // 100, y % 100, mo, d, h, mi, sec])      # simple format: century first
+        elif p.device == 0xF1:
+            status, payload = self._appstore(p)
+        elif p.device == 0xF2:
+            status, payload = self._catalog(p)
         elif p.device == nd.FILE_DEVICE and p.command == nd.FILE_LIST_DIRECTORY:
             status, payload = self._files(p.payload)
         else:
