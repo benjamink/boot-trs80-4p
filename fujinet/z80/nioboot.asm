@@ -12,6 +12,7 @@
           IFNDEF DRV_BASE
           DEFINE DRV_BASE 0E000h   ; where the driver (and its buffers) live
           ENDIF
+          DEFINE DOS_CLOCK         ; the driver fills in LS-DOS's date and time from the FujiNet (see fujidrv.asm)
           DEFINE HIGH_PTR 040Eh    ; where LS-DOS 6.3.1 keeps HIGH$; the driver lowers it below itself (see fujidrv.asm)
 BOOTSEC   equ 4300h
 BS_READ   equ 4396h
@@ -58,6 +59,13 @@ bsr_ok:   ld a,e
           ; DCT+5 is left alone: LS-DOS's boot code rewrites it.
           ld hl,drv_entry
           ld (0471h),hl
+          push bc                  ; the FujiNet's clock gives LS-DOS its date, so it need not ask (see fujidrv.asm)
+          push de
+          push hl
+          call clock_boot
+          pop hl
+          pop de
+          pop bc
 bsr_done: xor a
 bsr_x:    pop iy
           ret

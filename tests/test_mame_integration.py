@@ -3,7 +3,7 @@
 Opt-in because each test boots the machine (about a minute):  MAME_TESTS=1 python3 -m unittest tests.test_mame_integration
 Needs `mame`, images/lsdos631l-upstream/L631NEW.DSK and the 4P ROMs in images/roms/trs80m4p/ (see tools/mame4p.py).
 """
-import os, select, shutil, subprocess, tempfile, threading, time, tty, unittest
+import os, re, select, shutil, subprocess, tempfile, threading, time, tty, unittest
 
 from fujinet import fujibus as fb
 from tests.fakenio import FakeNio
@@ -123,12 +123,15 @@ class LsDosOnMameTests(unittest.TestCase):
 class FloppylessBootTests(unittest.TestCase):
     """The 4P with NO disk media: the ROM serial loader runs nioboot, which boots LS-DOS from a FujiNet image."""
 
+    clock = None                                              # what the fake FujiNet's clock device reports
+
     def setUp(self):
         subprocess.run(["make", "-B", "-C", ROOT], check=True, stdout=subprocess.DEVNULL)
         with open(BASE, "rb") as f:
             flat = lsdosfs.flat_image(dmk.parse_dmk(f.read()))
         self.nio = FakeNio()
         self.nio.mount(1, flat)
+        self.nio.clock = self.clock
         self.mame = Mame4P(ROMS, None, mode="serial")
         pty = self.mame.start()
         self.addCleanup(self.mame.stop)
@@ -164,6 +167,27 @@ class FloppylessBootTests(unittest.TestCase):
         self.assertGreater(len(self.nio.requests), before)                                # DIR read through the driver
         high = self.mame.peek(0x040E, 2)                                                  # HIGH$ (LS-DOS 6.3.1 keeps it here)
         self.assertEqual(high[0] | high[1] << 8, 0xDFFF)                                  # just below the driver at E000h
+
+
+@unittest.skipUnless(HAVE, "set MAME_TESTS=1 and install mame, sjasmplus, the LS-DOS image and the 4P ROMs")
+class FloppylessBootWithClockTests(FloppylessBootTests):
+    """Same boot, but the FujiNet has a clock: LS-DOS must not ask for the date and time."""
+    clock = (2027, 11, 23, 14, 37, 45)
+
+    def test_boots_ls_dos_to_the_date_prompt_without_any_disk(self):
+        self.skipTest("the date prompt is what the no-clock class checks")
+
+    def test_boots_straight_to_ready_with_the_date_from_the_fujinet(self):
+        s = self.mame.wait_for("LS-DOS Ready", 180)
+        self.assertNotIn("Date MM/DD/YY", s)
+        self.assertNotIn("Time HH:MM:SS", s)
+        self.assertIn("Nov 23, 2027", s)
+        time.sleep(2)
+        self.mame.type("TIME\n")
+        end = time.time() + 60
+        while time.time() < end and not re.search(r"14:3[78]:\d\d", self.mame.screen()):
+            time.sleep(1)
+        self.assertRegex(self.mame.screen(), r"14:3[78]:\d\d")                # the time from the FujiNet, ticking on
 
 
 if __name__ == "__main__":

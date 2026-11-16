@@ -81,6 +81,12 @@ from the FujiNet. In MAME with no disk at all it reaches the date prompt in abou
 
 HIGH$ protection: LS-DOS sets HIGH$ (kept at 040Eh in 6.3.1) after this loader has handed over, so the driver lowers it to DFFFh on every call. Checked in MAME: HIGH$ reads FFFF without this and DFFF with it.
 
+Date and time: if the FujiNet has a clock device (device 0x45), LS-DOS no longer asks for them. When the last boot sector is in, the loader fetches the
+clock and stores the date at 0033h-0035h and sets the flag at 04C3h that makes SYS0 skip the prompts. SYS0 then overwrites the time with its default, so
+the driver fetches the clock again on the first call after LS-DOS has finished initialising (HIGH$ jumps back up) and stores the time. Checked in MAME
+(date on the boot screen, `TIME` shows the fetched time). With no clock device the prompts appear as before. If your fujinet-nio has no timezone set, the
+clock reports UTC; the answer uses the device's configured timezone.
+
 ## Testing without the 4P: MAME
 
 MAME's `trs80m4p` runs the real 4P boot ROM and real LS-DOS, with an RS-232 port that `tools/mame4p.py` exposes as a pty
