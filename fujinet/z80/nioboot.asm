@@ -19,6 +19,10 @@ BS_READ   equ 4396h
 
 start:    di
           ld sp,5000h
+          ld hl,banner             ; first sign of life on the screen (video RAM at 3C00h while the ROM is mapped)
+          ld de,3E00h
+          ld bc,banner_end-banner
+          ldir
           ld a,64h                 ; UART as the ROM sets it (see fcli.asm)
           out (0EAh),a
           ld a,0FFh
@@ -44,6 +48,8 @@ ok:          ld a,0C3h                ; JP bs_read over the boot sector's own FD
           xor a
           out (9Ch),a              ; boot ROM out, RAM in
           jp BOOTSEC
+banner:   db "nioboot: reading the boot sector from the FujiNet"
+banner_end:
 waiting:  db "Waiting for FujiNet..."
 waiting_end:
 
@@ -65,6 +71,12 @@ bsr_ok:   ld a,e
           ; DCT+5 is left alone: LS-DOS's boot code rewrites it.
           ld hl,drv_entry
           ld (0471h),hl
+          ld hl,047Ah              ; drives 1-7: disabled (DCT+0 = RET). LS-DOS probes every enabled floppy drive at the end of
+          ld de,10                 ; its start-up, and on the 4P an empty drive hangs that probe (drive light on, seen on hardware).
+          ld b,7                   ; FUJIDRV re-enables the drive it installs.
+dis_lp:   ld (hl),0C9h
+          add hl,de
+          djnz dis_lp
           push bc                  ; the FujiNet's clock gives LS-DOS its date, so it need not ask (see fujidrv.asm)
           push de
           push hl
