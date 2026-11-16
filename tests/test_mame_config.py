@@ -50,6 +50,20 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("hello from C", 30)
         self.mame.wait_for("LS-DOS Ready", 30)
 
+    def test_console_and_widgets_work_under_ls_dos(self):
+        self.boot({"UIDEMO/CMD": self.build("uidemo")})
+        self.mame.type("UIDEMO\n")
+        self.mame.wait_for("[*Browse*]", 30)
+        self.mame.wait_for("> item 000", 10)
+        self.mame.press("Left Shift+Down")                       # page: selection moves height-1 = 17
+        self.mame.wait_for("> item 017", 10)
+        self.mame.press("Down")
+        self.mame.wait_for("> item 018", 10)
+        self.mame.type("aHi there\n")                          # text field: 'a' opens it, ENTER accepts
+        self.mame.wait_for("Hi there", 10)
+        self.mame.press("Break")
+        self.mame.wait_for("LS-DOS Ready", 30)
+
 
 if __name__ == "__main__":
     unittest.main()

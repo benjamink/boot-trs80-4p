@@ -50,8 +50,17 @@ local already = io.open(sentinel, "r")
 if already then already:close() end
 
 local frames = 0
+local held = {}                                              -- keys pressed by "press": {field, release_at_frame}
+local function find_field(name)
+  for tag = 0, 7 do
+    for _, f in pairs(m.ioport.ports[":LINE" .. tag].fields) do if f.name == name then return f end end
+  end
+end
 emu.register_frame_done(function()
   frames = frames + 1
+  for i = #held, 1, -1 do
+    if frames >= held[i][2] then held[i][1]:set_value(0); table.remove(held, i) end
+  end
   if hold_shift then rshift:set_value(1) end              -- a real key press (window mode) would otherwise cancel it
   if mode == "disk" then
     -- MAME's 4P ROM samples the floppy ready line before the drive has spun up. Keep drive 0 selected so it spins;
@@ -81,6 +90,20 @@ emu.register_frame_done(function()
             -- "pc" -> <ctl>.pc : the Z80 program counter and stack pointer, hex
             local st = m.devices[":maincpu"].state
             write_file(ctl .. ".pc", string.format("%04X %04X", st["PC"].value, st["SP"].value))
+          elseif line == "fields" then
+            -- "fields" -> <ctl>.fields : every keyboard key name MAME knows, one per line
+            local t = {}
+            for tag = 0, 7 do
+              for _, f in pairs(m.ioport.ports[":LINE" .. tag].fields) do t[#t + 1] = f.name end
+            end
+            table.sort(t)
+            write_file(ctl .. ".fields", table.concat(t, "\n"))
+          elseif line:sub(1, 6) == "press " then
+            -- "press <key name>[+<key name>...]" holds the named keys (MAME names, e.g. "Up+Left Shift") for 12 frames
+            for name in line:sub(7):gmatch("[^+]+") do
+              local f = find_field(name)
+              if f then f:set_value(1); held[#held + 1] = {f, frames + 12} end
+            end
           elseif line:sub(1, 5) == "keys " then m.natkeyboard:post((line:sub(6):gsub("\\n", "\n"))) end
         end
       end
