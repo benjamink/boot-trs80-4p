@@ -52,6 +52,30 @@ class MonitorTests(unittest.TestCase):
         with self.assertRaises(MonitorError):
             m.ping(b"anyone?")
 
+    def spy_reads(self, fake):
+        waits = []
+        real = fake.read
+        fake.read = lambda timeout: (waits.append(timeout), real(timeout))[1]
+        return waits
+
+    def test_exec_waits_long_for_the_answer_because_an_ls_dos_call_can_take_seconds(self):
+        # a floppy needs motor spin-up and seeks for @INIT/@WRITE; the monitor cannot answer until the call returns
+        fake, m = make()
+        fake.exec_handlers[0x8000] = lambda f: {"A": 1}
+        waits = self.spy_reads(fake)
+        m.exec(0x8000)
+        self.assertGreaterEqual(max(waits), 10)
+        waits.clear()
+        m.ping(b"x")
+        self.assertLessEqual(max(waits), 0.01)                        # other commands keep the short timeout
+
+    def test_exec_can_be_given_the_short_timeout(self):
+        fake, m = make()
+        fake.exec_handlers[0x8000] = lambda f: {"A": 1}
+        waits = self.spy_reads(fake)
+        m.exec(0x8000, timeout=0.01)
+        self.assertLessEqual(max(waits), 0.01)
+
     def test_exec_returns_registers(self):
         fake, m = make()
         fake.exec_handlers[0x9000] = lambda f: dict(A=0x42, F=0x44, B=1, C=2, D=3, E=4, H=5, L=6)

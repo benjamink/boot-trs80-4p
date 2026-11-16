@@ -17,14 +17,16 @@ class MonitorError(Exception):
 
 
 class Monitor:
-    def __init__(self, transport, timeout=0.5, retries=5):
+    def __init__(self, transport, timeout=0.5, retries=5, exec_timeout=30.0):
         self.t = transport
         self.timeout = timeout
+        self.exec_timeout = exec_timeout   # EXEC may run an LS-DOS call (floppy spin-up, seeks): the answer comes when it returns
         self.retries = retries
         self.seq = 0
         self.retry_count = 0       # resends so far (diagnostics)
 
-    def _request(self, cmd, payload=b""):
+    def _request(self, cmd, payload=b"", timeout=None):
+        timeout = self.timeout if timeout is None else timeout
         seq = self.seq
         self.seq = (self.seq + 1) & 0xFF
         frame = F.encode_request(cmd, seq, payload)
@@ -44,7 +46,7 @@ class Monitor:
                     if p.code == F.ST_BAD_COMMAND:
                         raise MonitorError(f"4P rejected command {cmd}")
                     return p.payload
-                chunk = self.t.read(self.timeout)
+                chunk = self.t.read(timeout)
                 if not chunk:
                     break                   # timed out: resend
                 buf += chunk
@@ -78,8 +80,10 @@ class Monitor:
             out += got
         return out
 
-    def exec(self, addr):
-        got = self._request(F.CMD_EXEC, bytes([addr & 0xFF, addr >> 8]))
+    def exec(self, addr, timeout=None):
+        """Run code at addr and return the registers it left. Waits up to exec_timeout (30 s) for the answer unless told otherwise
+        (a repeat after a timeout is safe: the 4P replays the answer for a repeated sequence number instead of running it again)."""
+        got = self._request(F.CMD_EXEC, bytes([addr & 0xFF, addr >> 8]), self.exec_timeout if timeout is None else timeout)
         return dict(zip(REG_ORDER, got))
 
     def port_in(self, port):

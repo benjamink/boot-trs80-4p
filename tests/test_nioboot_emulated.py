@@ -204,6 +204,29 @@ class NiobootTests(unittest.TestCase):
         self.call_rdsec_with_high(0xFFFF)
         self.assertEqual(m[0x2D], 9)                                  # once only
 
+    def test_a_nonsense_clock_answer_is_ignored_so_ls_dos_asks_as_before(self):
+        # a FujiNet that never got the time reports 1970; garbage must not reach LS-DOS or switch its prompts off
+        for bad in ((1970, 1, 1, 0, 0, 0), (2027, 13, 1, 1, 1, 1), (2027, 0, 5, 1, 1, 1), (2027, 11, 32, 1, 1, 1),
+                    (2027, 11, 0, 1, 1, 1), (2027, 11, 5, 24, 0, 0), (2027, 11, 5, 1, 60, 0), (2027, 11, 5, 1, 1, 60)):
+            with self.subTest(bad=bad):
+                self.setUp()
+                self.nio.clock = bad
+                self.hook_sector_15()
+                m = self.cpu.mem
+                self.assertEqual((bytes(m[0x33:0x36]), m[0x04C3]), (bytes([0xFF] * 3), 0))
+        for good in ((2026, 1, 1, 0, 0, 0), (2099, 12, 31, 23, 59, 59)):
+            with self.subTest(good=good):
+                self.setUp()
+                self.nio.clock = good
+                self.hook_sector_15()
+                self.assertNotEqual(self.cpu.mem[0x04C3], 0)
+
+    def test_a_clock_answer_in_another_format_is_ignored(self):
+        self.nio.clock = (2027, 11, 23, 14, 37, 45)
+        self.nio.clock_format_echo = 4                                  # answers with the ISO-UTC format code, not simple
+        self.hook_sector_15()
+        self.assertEqual(self.cpu.mem[0x04C3], 0)
+
     def test_without_a_clock_device_nothing_is_touched_and_boot_carries_on(self):
         self.nio.clock = None
         self.hook_sector_15()
