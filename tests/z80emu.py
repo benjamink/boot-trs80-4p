@@ -184,6 +184,8 @@ class Z80:
         elif op == 0xCD:
             a = self.fetch16(); self.push(self.pc); self.pc = a
         elif op == 0xE9: self.pc = self.hl()
+        elif op & 0xC7 == 0xC7:                         # RST n
+            self.push(self.pc); self.pc = op & 0x38
         elif op == 0xF3: self.iff = False
         elif op == 0xFB: self.iff = True
         elif op == 0xD3: self.io_out(self.fetch(), R[7])
