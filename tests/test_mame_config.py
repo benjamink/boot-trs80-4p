@@ -273,3 +273,54 @@ class ConfigOnMameTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HAVE and shutil.which("zcc"), "set MAME_TESTS=1 and install mame, sjasmplus, z88dk, the LS-DOS image and the 4P ROMs")
+class ConfigAutostartTests(unittest.TestCase):
+    """nioboot-config.hex (nioboot with AUTO_CMD="CONFIG") boots the 4P straight into CONFIG, like an AUTOEXEC."""
+
+    def boot(self, loader):
+        from tools.make_boot_image import BASIC_DROP, CONFIG_BIN_DEFAULT
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        subprocess.run(["make", "-C", TRS80, "build/config.bin"], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["make", "-C", root, "all"], check=True, stdout=subprocess.DEVNULL)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        disk = os.path.join(tmp, "boot.dmk")
+        make_boot_image(BASE, disk, drop=DROP + BASIC_DROP, config_bin=CONFIG_BIN_DEFAULT)
+        with open(disk, "rb") as f:
+            flat = lsdosfs.flat_image(dmk.parse_dmk(f.read()))
+        self.nio = FakeNio()
+        self.nio.mount(1, flat)
+        self.nio.clock = (2027, 11, 23, 14, 37, 45)
+        self.nio.appstore[("config-nio", "hosts")] = b"sd0:/\n"
+        self.nio.dirs["sd0:/"] = ["-  720 Nov 16 09:00 Game.img"]
+        self.mame = Mame4P(ROMS, None, mode="serial")
+        pty = self.mame.start()
+        self.addCleanup(self.mame.stop)
+        self.mame.wait_for("Ready", 120)
+        time.sleep(1)
+        r = subprocess.run(["python3", os.path.join(root, "trs80boot.py"), os.path.join(root, "build", loader),
+                            "-p", pty, "--entry", "0x5000", "-y"], capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.mame.release_shift()
+        fd = os.open(pty, os.O_RDWR | os.O_NOCTTY)
+        tty.setraw(fd)
+        stop = threading.Event()
+        t = threading.Thread(target=serve, args=(fd, self.nio, stop), daemon=True)
+        t.start()
+        self.addCleanup(lambda: (stop.set(), t.join(2), os.close(fd)))
+
+    def test_config_starts_by_itself_and_quits_to_ls_dos(self):
+        self.boot("nioboot-config.hex")
+        self.mame.wait_for("[*Browse*]", 240)
+        self.mame.wait_for("Game.img", 30)
+        time.sleep(3)
+        self.mame.type("q")
+        self.mame.wait_for("LS-DOS Ready", 60)
+
+    def test_the_plain_loader_still_stops_at_ls_dos_ready(self):
+        self.boot("nioboot.hex")
+        s = self.mame.wait_for("LS-DOS Ready", 240)
+        time.sleep(5)
+        self.assertNotIn("CONFIG NIO", self.mame.screen())
