@@ -1,6 +1,6 @@
 import os, shutil, subprocess, tempfile, unittest
 
-from tools.make_boot_image import DROP, NAME, make_boot_image, serial_cmd, tool_cmd
+from tools.make_boot_image import BASIC_DROP, DROP, NAME, make_boot_image, serial_cmd, tool_cmd
 from trs80 import lsdosfs
 from trs80.dmk import parse_dmk
 
@@ -27,6 +27,24 @@ class BootImageTests(unittest.TestCase):
         self.assertIn(("SERIAL", "CMD", n), [(f.name, f.ext, f.size) for f in lsdosfs.list_files(img)])
         self.assertTrue(lsdosfs.is_bootable(img))
         self.assertEqual(lsdosfs.check_hit(img), [])
+
+    def test_config_cmd_is_added_with_its_client_and_entry_at_3000h(self):
+        cfg = os.path.join(self.tmp, "config.bin")
+        with open(cfg, "wb") as f:
+            f.write(bytes(range(256)) * 80)
+        make_boot_image(BASE, self.out, drop=DROP + BASIC_DROP, config_bin=cfg)
+        img = parse_dmk(rd(self.out))
+        blob = lsdosfs.read_file(img, "CONFIG/CMD")
+        self.assertEqual(blob[-4:], bytes([0x02, 0x02, 0x00, 0x30]))       # transfer address 3000h
+        self.assertEqual(lsdosfs.check_hit(img), [])
+        self.assertTrue(lsdosfs.is_bootable(img))
+
+    def test_config_cmd_that_does_not_fit_is_a_loud_error(self):
+        cfg = os.path.join(self.tmp, "config.bin")
+        with open(cfg, "wb") as f:
+            f.write(bytes(0x7000))
+        with self.assertRaisesRegex(RuntimeError, "does not fit"):
+            make_boot_image(BASE, self.out, drop=DROP, config_bin=cfg)
 
     def test_file_is_the_load_module_with_entry_at_front_end(self):
         make_boot_image(BASE, self.out)

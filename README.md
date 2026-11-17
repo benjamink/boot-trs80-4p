@@ -34,9 +34,13 @@ monitor with a small front end (sets the UART to 19200 baud, 8O1, then waits), a
 are written by LS-DOS itself.
 
 1. Build the image and write only the tracks that changed (the image also gains the FujiNet commands below and
-   loses `HELP/CMD` and `DOS/HLP` to make room; `--keep-help` keeps them if there is room). This assumes the floppy
+   loses `HELP/CMD` and `DOS/HLP` to make room; `--keep-help` keeps them if there is room). It also gains `CONFIG/CMD`
+   (the nio-config screens: Hosts, Browse, Slots, Setup; see nio-config `docs/trs80-config.md`), which needs LS-DOS BASIC
+   (`BASIC/CMD`, `BASIC/OV1`, `BASIC/OV2`, `BREF/CMD`) removed; `--no-config` leaves CONFIG out and keeps BASIC.
+   Build CONFIG first with z88dk: `make -C $NIO_WORKSPACE/repos/nio-config trs80`. This assumes the floppy
    still holds exactly `L631NEW.DSK` as written earlier:
 
+       make -C $NIO_WORKSPACE/repos/nio-config trs80
        make
        python3 tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out images/boot.dsk
        # 4P: hold right-shift, press reset until "Ready"; then:
@@ -124,3 +128,8 @@ What MAME is not: it is not proof of real-hardware timing, and MAME's UART diffe
 
 GPL-3.0-or-later (see `LICENSE`), so the FujiNet work can go upstream to fujinet-nio, which is GPL-3.0. The LS-DOS images under `images/` are not covered by it:
 they keep their own terms (`images/lsdos631l-upstream/LICENSE`), and the 4P ROMs are not part of this repo.
+
+## CONFIG demo
+
+`NIO_WORKSPACE=... python3 tools/demo_config.py` opens a MAME window with CONFIG running against the fake
+fujinet-nio (`tests/fakenio.py`); nothing real is mounted.
