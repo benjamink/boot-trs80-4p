@@ -78,6 +78,7 @@ emu.register_frame_done(function()
         io.open(ctl .. ".cmd", "w"):close()
         for line in data:gmatch("[^\n]+") do
           if line == "exit" then m:exit()
+          elseif line == "reset" then m:soft_reset()
           elseif line:sub(1, 5) == "peek " then
             -- "peek <hex addr> <count>" -> <ctl>.peek as hex bytes
             local a, n = line:match("peek (%x+) (%d+)")

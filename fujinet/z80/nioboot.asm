@@ -61,7 +61,31 @@ bs_read:  push iy
           jr z,bsr_ok
           or 80h                   ; any error: set bits the boot sector tests
           jr bsr_x
-bsr_ok:   ld a,e
+bsr_ok:
+          IFDEF AUTO_CMD
+          ; AUTO_CMD: LS-DOS runs the command stored at offset 20h of boot-area sector 2 (what its AUTO command writes there) at
+          ; the end of start-up. Put it into that sector as it passes, so the boot disk need not carry an AUTO command.
+          ld a,e
+          cp 2
+          jr nz,bsr_noauto
+          ld a,d
+          or a
+          jr nz,bsr_noauto
+          push bc
+          push de
+          push hl
+          ld de,20h
+          add hl,de
+          ex de,hl
+          ld hl,auto_cmd
+          ld bc,auto_cmd_end-auto_cmd
+          ldir
+          pop hl
+          pop de
+          pop bc
+bsr_noauto:
+          ENDIF
+          ld a,e
           cp 15
           jr nz,bsr_done
           ld a,d
@@ -93,6 +117,11 @@ dis_lp:   ld (hl),0C9h
 bsr_done: xor a
 bsr_x:    pop iy
           ret
+
+          IFDEF AUTO_CMD
+auto_cmd: db AUTO_CMD,0Dh
+auto_cmd_end:
+          ENDIF
 
 ; a stand-in DCT entry: slot 1, 40 cylinders of 18 sectors; directory cylinder 0FFh so no sector reads as a "system record"
 boot_dct: db 0C3h,0,0,44h,50h,1,39,17,45h,0FFh
