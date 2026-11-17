@@ -132,7 +132,7 @@ class NiobootTests(unittest.TestCase):
         c = self.cpu
         for _ in range(300):                                             # long before the first answer could arrive
             c.step()
-        self.assertIn(b"nioboot", bytes(c.mem[0x3E00:0x3E40]))
+        self.assertIn(b"FujiNet NIO - booting", bytes(c.mem[0x3E00:0x3E40]))
 
     def test_a_link_that_comes_up_late_still_boots_and_the_wait_is_announced(self):
         saved = self.nio.slots.copy()
@@ -140,7 +140,7 @@ class NiobootTests(unittest.TestCase):
         c = self.cpu
         for _ in range(4_000_000):                                       # far longer than one answer timeout: three tries are over
             c.step()
-        self.assertIn(b"Waiting for FujiNet", bytes(c.mem[0x3E80:0x3E80 + 40]))
+        self.assertIn(b"Waiting for FujiNet", bytes(c.mem[0x3E8E:0x3E8E + 40]))
         self.nio.slots.update(saved)                                     # the FujiNet is plugged in / started
         self.run_to_boot_sector()                                        # ... and the boot goes on by itself
 

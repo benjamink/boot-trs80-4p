@@ -54,7 +54,7 @@ What this sets up: the 4P boots LS-DOS with no floppy, entirely from images serv
 
 3. On the 4P: hold **Right Shift**, press **RESET**, keep holding until the screen says `Ready` (plus a couple of seconds), then let go.
    The screen may say `Not Ready` for a while first; that is the ROM's floppy message and is harmless. The 4P screen then shows
-   `nioboot: reading the boot sector...`, and LS-DOS boots in about 10-20 seconds to `LS-DOS Ready` with no date/time prompt.
+   `FujiNet NIO - booting LS-DOS`, and LS-DOS boots in about 10-20 seconds to `LS-DOS Ready` with no date/time prompt.
 4. **After every 4P reset you must restart step 2** (Ctrl-C the old one first): the loader is only sent once per run.
 
 ## Things to try at the LS-DOS prompt

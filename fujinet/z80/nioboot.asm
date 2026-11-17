@@ -19,8 +19,13 @@ BS_READ   equ 4396h
 
 start:    di
           ld sp,5000h
+          ld hl,3C00h              ; wipe the ROM loader's "Ready / Found Baud Rate / Loading" text (video RAM, 64x16)
+          ld de,3C01h
+          ld bc,3FFh
+          ld (hl),' '
+          ldir
           ld hl,banner             ; first sign of life on the screen (video RAM at 3C00h while the ROM is mapped)
-          ld de,3E00h
+          ld de,3E0Eh
           ld bc,banner_end-banner
           ldir
           ld a,64h                 ; UART as the ROM sets it (see fcli.asm)
@@ -37,7 +42,7 @@ retry:    ld de,1                  ; cylinder 0, sector ID 1
           and 1Ch
           jr z,ok
           ld hl,waiting            ; no FujiNet answer yet: say so, then keep trying (start fujinet-nio or move the cable)
-          ld de,3E80h
+          ld de,3E8Eh
           ld bc,waiting_end-waiting
           ldir
           jr retry
@@ -48,7 +53,7 @@ ok:          ld a,0C3h                ; JP bs_read over the boot sector's own FD
           xor a
           out (9Ch),a              ; boot ROM out, RAM in
           jp BOOTSEC
-banner:   db "nioboot: reading the boot sector from the FujiNet"
+banner:   db "FujiNet NIO - booting LS-DOS"
 banner_end:
 waiting:  db "Waiting for FujiNet..."
 waiting_end:
