@@ -18,6 +18,7 @@
 #                   (default: ~/dev/fujinet-run)
 #   NIO_CONFIG_BIN  nio-config's trs80/build/config.bin, added to the boot disk as CONFIG/CMD when it exists
 #                   (default: $NIO_WORKSPACE/repos/nio-config/trs80/build/config.bin)
+#   NIO_AUTOSTART   0 to stop at the LS-DOS prompt instead of starting CONFIG (same as --no-autostart; default 1)
 #   NIO_WORKSPACE   the fujinet-nio workspace (default: ~/dev/fujinet-nio-workspace)
 set -euo pipefail
 
@@ -27,11 +28,11 @@ NIO="${FUJINET_NIO:-$WS/repos/fujinet-nio/build/fujibus-rs232-debug/fujinet-nio}
 RUN="${FUJINET_RUN:-$HOME/dev/fujinet-run}"
 CONFIG_BIN="${NIO_CONFIG_BIN:-$WS/repos/nio-config/trs80/build/config.bin}"
 PORT=""
-AUTOSTART=1
+AUTOSTART="${NIO_AUTOSTART:-1}"
 
 die() { echo "boot-fuji: $*" >&2; exit 1; }
 
-usage() { sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
