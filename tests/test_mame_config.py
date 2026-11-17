@@ -145,38 +145,45 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("31/31", 30)                             # clamps at the last entry
         self.mame.wait_for("Game29.img", 30)
         self.mame.wait_for("31/31", 10)
-        self.mame.type("\n")                                       # ENTER on a file mounts it on the selected drive (:0)
-        self.mame.wait_for("Mounted Game29.img on :0", 30)
-        self.assertEqual(nio.uris[1][0], "sd0:/Game29.img")
-        self.assertEqual(nio.catalog[0][1], "sd0:/Game29.img")
-        self.assertEqual(nio.appstore[("config-nio", "mappings")][1:3], bytes([1, 0]))   # drive :0 valid, catalogue slot 0
-        self.mame.wait_for(":0 Game29.img", 10)
+        self.mame.type("\n")                                       # ENTER on a file mounts it on the selected drive (:1: :0 is the boot disk)
+        self.mame.wait_for("Mounted Game29.img on :1", 30)
+        self.mame.wait_for("run FUJIDRV :1 once", 10)
+        self.assertEqual(nio.uris[2][0], "sd0:/Game29.img")
+        self.assertEqual(nio.catalog[1][1], "sd0:/Game29.img")      # catalogue entries follow the drive number
+        self.assertNotIn(1, nio.uris)                               # nothing touched :0
+        self.mame.wait_for(":1 Game29.img", 10)
+        self.mame.wait_for(":0 (boot disk)", 10)
         self.mame.press("Right")                                    # (Right = TAB): focus the drives pane
         self.mame.wait_for("[drives]", 10)
         self.mame.press("Down")
-        self.mame.wait_for("> :1", 10)
-        self.mame.press("Right")                                    # back to the files; ENTER now mounts on :1 with a hint
+        self.mame.wait_for("> :2", 10)
+        self.mame.press("Right")                                    # back to the files; ENTER now mounts on :2
         self.mame.wait_for("[files]", 10)
-        self.mame.press("Down")                                     # (the list clamps at the last entry)
         self.mame.type("\n")
-        self.mame.wait_for("run FUJIDRV :1 once", 30)
-        self.assertEqual(nio.uris[2][0], "sd0:/Game29.img")
+        self.mame.wait_for("run FUJIDRV :2 once", 30)
+        self.assertEqual(nio.uris[3][0], "sd0:/Game29.img")
         self.mame.press("Right")
         self.mame.wait_for("[drives]", 10)
-        self.mame.type("x")                                         # eject drive :1
+        self.mame.type("x")                                         # eject drive :2
         self.mame.wait_for("Ejected", 30)
-        self.assertNotIn(2, nio.uris)
-        self.assertNotIn(1, nio.catalog, nio.catalog)
-        self.mame.wait_for(":1 (empty)", 10)
+        self.assertNotIn(3, nio.uris)
+        self.assertNotIn(2, nio.catalog)
+        self.mame.wait_for(":2 (empty)", 10)
         time.sleep(1)
-        self.mame.type("x")                                         # :1 is empty now
+        self.mame.type("x")                                         # :2 is empty now
         self.mame.wait_for("Nothing to eject", 30)
         self.mame.press("↑")
+        self.mame.wait_for("> :1", 10)
+        self.mame.press("↑")
         self.mame.wait_for("> :0", 10)
+        self.mame.type("x")                                         # the boot disk is never ejected from CONFIG
+        self.mame.wait_for("is the boot disk", 10)
+        self.mame.press("Down")
+        self.mame.wait_for("> :1", 10)
         self.mame.type("x")
         self.mame.wait_for("Ejected", 30)
-        self.assertNotIn(1, nio.uris)
-        self.assertNotIn(0, nio.catalog)
+        self.assertNotIn(2, nio.uris)
+        self.assertNotIn(1, nio.catalog)
         self.mame.type("q")
         self.mame.wait_for("LS-DOS Ready", 30)
 
@@ -244,9 +251,9 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("Game02.img", 30)
         self.mame.type("\n")                                       # directories first: ENTER on utils/ opens it
         self.mame.wait_for("Tool.img", 30)
-        self.mame.type("\n")                                       # mount Tool.img on :0
-        self.mame.wait_for("Mounted Tool.img on :0", 30)
-        for key, text in (("s", "sd0:/utils/Tool.img"), ("h", "A add"), ("w", "PREFERENCES"), ("s", ":1 (empty)"), ("b", "[files]")):
+        self.mame.type("\n")                                       # mount Tool.img on :1
+        self.mame.wait_for("Mounted Tool.img on :1", 30)
+        for key, text in (("s", "sd0:/utils/Tool.img"), ("h", "A add"), ("w", "PREFERENCES"), ("s", ":2 (empty)"), ("b", "[files]")):
             self.mame.type(key)
             self.mame.wait_for(text, 15)
         for _ in range(3):                                          # SHIFT+Right across the tabs and back
