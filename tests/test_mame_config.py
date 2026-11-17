@@ -202,6 +202,28 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.press("Break")
         self.mame.wait_for("LS-DOS Ready", 30)
 
+    def test_config_setup_wifi_scan_join_and_prefs(self):
+        nio = self.nio_with_folder(count=1)
+        nio.wifi_networks = [("HomeNet", -40, 3), ("CafeOpen", -70, 0)]
+        self.start_config(nio)
+        self.mame.type("w")
+        self.mame.wait_for("press N to scan", 10)
+        self.mame.wait_for("not connected", 10)
+        self.mame.type("n")
+        self.mame.wait_for("HomeNet", 30)
+        self.mame.wait_for("CafeOpen", 10)
+        self.mame.type("\n")                                       # join the selected network
+        self.mame.wait_for("Password", 10)
+        self.mame.type("secret1\n")
+        self.mame.wait_for("Connected", 60)
+        self.assertEqual(nio.wifi_joined, ("HomeNet", "secret1"))
+        self.mame.wait_for("connected 192.168.1.50", 10)
+        self.mame.type("d")
+        self.mame.wait_for("Date order: YDM", 30)
+        self.assertIn(b"ydm", nio.appstore[("config-nio", "prefs")])
+        self.mame.press("Break")
+        self.mame.wait_for("LS-DOS Ready", 30)
+
     def test_unanswered_request_returns_to_ls_dos_with_an_error(self):
         self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})   # nobody answers on the line
         self.mame.type("NIOSELF\n")
