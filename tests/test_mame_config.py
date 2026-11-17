@@ -178,6 +178,30 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.press("Break")
         self.mame.wait_for("LS-DOS Ready", 30)
 
+    def test_config_hosts_add_delete_and_browse(self):
+        nio = self.nio_with_folder(count=3)
+        nio.dirs["tnfs://pi/"] = ["-  720 Nov 16 09:00 Pi.img"]
+        self.start_config(nio)
+        self.mame.type("h")
+        self.mame.wait_for("A add", 10)
+        self.mame.wait_for("sd0:/", 10)
+        self.mame.type("a")
+        self.mame.wait_for("New host URI", 10)
+        self.mame.type("tnfs://pi/\n")
+        self.mame.wait_for("Saved", 30)
+        self.assertEqual(nio.appstore[("config-nio", "hosts")], b"sd0:/\ntnfs://pi/\n")
+        self.mame.press("Down")
+        self.mame.wait_for("> tnfs://pi/", 10)
+        self.mame.type("\n")                                       # ENTER browses the selected host
+        self.mame.wait_for("Pi.img", 30)
+        self.mame.type("h")
+        self.mame.wait_for("A add", 10)
+        self.mame.type("d")                                         # deletes the selected (second) host
+        self.mame.wait_for("Deleted", 30)
+        self.assertEqual(nio.appstore[("config-nio", "hosts")], b"sd0:/\n")
+        self.mame.press("Break")
+        self.mame.wait_for("LS-DOS Ready", 30)
+
     def test_unanswered_request_returns_to_ls_dos_with_an_error(self):
         self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})   # nobody answers on the line
         self.mame.type("NIOSELF\n")
