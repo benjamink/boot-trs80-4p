@@ -18,6 +18,7 @@ class FakeNio:
         self.clock = None                     # (year, month, day, hour, minute, second) the Clock device reports; None = no clock device
         self.appstore = {}                    # (namespace, key) -> bytes, the AppStore device (F1h)
         self.catalog = {}                     # index -> (flags, uri), the SlotCatalog device (F2h)
+        self.list_pages = True                # False: ListPages answers "unsupported" like older firmware
         self.mangle = []                      # queue of callables(response_wire) -> wire (fault injection); None = pass
 
     def mount(self, slot, image, readonly=False):
@@ -147,6 +148,35 @@ class FakeNio:
         return (bytes([1 if parts[0] == "d" else 0, len(name)]) + name + int(parts[1]).to_bytes(4, "little")
                 + bytes(4) + bytes(4) + bytes(4))
 
+    @staticmethod
+    def _page_entry(line):
+        """eflags, nameLen, name, size(4), mtime(4)."""
+        parts = line.split()
+        name = parts[-1].rstrip("/").encode()
+        return bytes([1 if parts[0] == "d" else 0, len(name)]) + name + int(parts[1]).to_bytes(4, "little") + bytes(4)
+
+    def _pages(self, pl):
+        """FileDevice ListPages: uri, startPage(2), pageSize(1), maxPayload(2), flags, maxName. Sorted: directories first."""
+        n = pl[1] | pl[2] << 8
+        uri = bytes(pl[3:3 + n]).decode()
+        o = 3 + n
+        start, size, room = pl[o] | pl[o + 1] << 8, pl[o + 2], pl[o + 3] | pl[o + 4] << 8
+        if uri not in self.dirs:
+            return IO_ERROR, b""
+        lines = sorted(self.dirs[uri], key=lambda l: (l.split()[0] != "d", l.split()[-1].lower()))
+        pages, used, page = b"", 0, start
+        while page * size < len(lines):
+            chunk = lines[page * size:(page + 1) * size]
+            body = b"".join(self._page_entry(l) for l in chunk)
+            if used + 3 + len(body) > room:
+                break
+            pages += bytes([len(chunk)]) + len(body).to_bytes(2, "little") + body
+            used += 3 + len(body)
+            page += 1
+        npages = page - start
+        more = page * size < len(lines)
+        return OK, bytes([1, int(more), 0, 0]) + len(lines).to_bytes(4, "little") + bytes(3) + bytes([npages]) + pages
+
     def _entries(self, lines, start, room):
         out, k = b"", 0
         for ln in lines[start:]:
@@ -184,6 +214,10 @@ class FakeNio:
             status, payload = self._appstore(p)
         elif p.device == 0xF2:
             status, payload = self._catalog(p)
+        elif p.device == nd.FILE_DEVICE and p.command == 7 and self.list_pages:
+            status, payload = self._pages(p.payload)
+        elif p.device == nd.FILE_DEVICE and p.command == 7:
+            status, payload = UNSUPPORTED, b""
         elif p.device == nd.FILE_DEVICE and p.command == nd.FILE_LIST_DIRECTORY:
             status, payload = self._files(p.payload)
         else:
