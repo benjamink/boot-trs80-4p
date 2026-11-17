@@ -198,8 +198,17 @@ fi
 # ---- go ------------------------------------------------------------------------------------------------------
 echo
 echo ">>> On the 4P: hold Right Shift, press Reset, and keep Right Shift held until the loader has been sent."
-python3 trs80boot.py "$LOADER" -p "$PORT" --format 8O1 --entry 0x5000 --byte-delay 0.002 -y \
-  || die "the loader failed (is the 4P at the ROM loader? hold Right Shift while pressing Reset, then run this again)"
+# The ROM loader sometimes rejects a transfer ("Error, E" on the 4P; trs80boot.py prints "4P says: Error" and still exits 0).
+# fujinet-nio can do nothing then, so offer to send again instead of going on.
+while :; do
+  out="$(python3 trs80boot.py "$LOADER" -p "$PORT" --format 8O1 --entry 0x5000 --byte-delay 0.002 -y 2>&1 | tee /dev/stderr)" \
+    || die "the loader failed (is the 4P at the ROM loader? hold Right Shift while pressing Reset, then run this again)"
+  grep -q "4P says: Error" <<<"$out" || break
+  echo
+  echo ">>> The 4P rejected the transfer. Reset it again (Right Shift held), then press Enter to resend (Ctrl-C to give up)."
+  [ -t 0 ] || die "no terminal to ask on"
+  read -r _
+done
 echo
 echo ">>> Loader sent; fujinet-nio is starting and will serve the boot disk. Ctrl-C stops it."
 cd "$RUN"
