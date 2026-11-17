@@ -155,7 +155,21 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("[drives]", 10)
         self.mame.press("Down")
         self.mame.wait_for("> :1", 10)
-        self.mame.type("x")                                         # eject drive :1 (empty): nothing to eject
+        self.mame.press("Right")                                    # back to the files; ENTER now mounts on :1 with a hint
+        self.mame.wait_for("[files]", 10)
+        self.mame.press("Down")                                     # (the list clamps at the last entry)
+        self.mame.type("\n")
+        self.mame.wait_for("run FUJIDRV :1 once", 30)
+        self.assertEqual(nio.uris[2][0], "sd0:/Game29.img")
+        self.mame.press("Right")
+        self.mame.wait_for("[drives]", 10)
+        self.mame.type("x")                                         # eject drive :1
+        self.mame.wait_for("Ejected", 30)
+        self.assertNotIn(2, nio.uris)
+        self.assertNotIn(1, nio.catalog, nio.catalog)
+        self.mame.wait_for(":1 (empty)", 10)
+        time.sleep(1)
+        self.mame.type("x")                                         # :1 is empty now
         self.mame.wait_for("Nothing to eject", 30)
         self.mame.press("↑")
         self.mame.wait_for("> :0", 10)
