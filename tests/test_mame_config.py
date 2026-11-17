@@ -114,6 +114,70 @@ class ConfigOnMameTests(unittest.TestCase):
         self.assertEqual(nio.catalog[0][1], "host:/disks/work.dsk")
         self.assertIn(("config-nio", "hosts"), nio.appstore)
 
+    def nio_with_folder(self, count=30):
+        nio = FakeNio()
+        nio.dirs["sd0:/"] = ["d    0 Nov 16 09:00 utils/"] + \
+            ["-  720 Nov 16 09:00 Game%02d.img" % i for i in range(count)]
+        for i in range(count):
+            nio.library["sd0:/Game%02d.img" % i] = bytes(720 * 256)
+        nio.library["sd0:/utils/Tool.img"] = bytes(720 * 256)
+        nio.dirs["sd0:/utils/"] = ["-  720 Nov 16 09:00 Tool.img"]
+        return nio
+
+    def start_config(self, nio):
+        self.boot({"CONFIG/CMD": self.build("config", with_client=True)})
+        self.serve_nio(nio)
+        nio.appstore[("config-nio", "hosts")] = b"sd0:/\n"
+        self.mame.type("CONFIG\n")
+        self.mame.wait_for("[*Browse*]", 90)
+
+    def test_config_browses_pages_and_mounts_and_ejects(self):
+        nio = self.nio_with_folder()
+        self.start_config(nio)
+        self.mame.wait_for("utils/", 30)
+        self.mame.wait_for("1/31", 10)
+        self.mame.press("Left Shift+Down")                          # a page down moves 11 rows: end of page 1
+        self.mame.wait_for("12/31", 10)
+        self.mame.press("Left Shift+Down")                          # next page (entries 12..23)
+        self.mame.wait_for("23/31", 30)
+        self.mame.wait_for("Game11.img", 30)
+        self.mame.press("Left Shift+Down")
+        self.mame.wait_for("31/31", 30)                             # clamps at the last entry
+        self.mame.wait_for("Game29.img", 30)
+        self.mame.wait_for("31/31", 10)
+        self.mame.type("\n")                                       # ENTER on a file mounts it on the selected drive (:0)
+        self.mame.wait_for("Mounted Game29.img on :0", 30)
+        self.assertEqual(nio.uris[1][0], "sd0:/Game29.img")
+        self.assertEqual(nio.catalog[0][1], "sd0:/Game29.img")
+        self.assertEqual(nio.appstore[("config-nio", "mappings")][1:3], bytes([1, 0]))   # drive :0 valid, catalogue slot 0
+        self.mame.wait_for(":0 Game29.img", 10)
+        self.mame.press("Right")                                    # (Right = TAB): focus the drives pane
+        self.mame.wait_for("[drives]", 10)
+        self.mame.press("Down")
+        self.mame.wait_for("> :1", 10)
+        self.mame.type("x")                                         # eject drive :1 (empty): nothing to eject
+        self.mame.wait_for("Nothing to eject", 30)
+        self.mame.press("↑")
+        self.mame.wait_for("> :0", 10)
+        self.mame.type("x")
+        self.mame.wait_for("Ejected", 30)
+        self.assertNotIn(1, nio.uris)
+        self.assertNotIn(0, nio.catalog)
+        self.mame.type("q")
+        self.mame.wait_for("LS-DOS Ready", 30)
+
+    def test_config_enters_and_leaves_a_folder_and_works_without_listpages(self):
+        nio = self.nio_with_folder(count=5)
+        nio.list_pages = False                                      # older firmware: first entries only
+        self.start_config(nio)
+        self.mame.wait_for("utils/", 30)
+        self.mame.type("\n")                                       # ENTER on utils/ (directories come first)
+        self.mame.wait_for("Tool.img", 30)
+        self.mame.press("Left")                                     # Left = up one folder
+        self.mame.wait_for("Game04.img", 30)
+        self.mame.press("Break")
+        self.mame.wait_for("LS-DOS Ready", 30)
+
     def test_unanswered_request_returns_to_ls_dos_with_an_error(self):
         self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})   # nobody answers on the line
         self.mame.type("NIOSELF\n")
