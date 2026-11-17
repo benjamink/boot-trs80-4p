@@ -145,33 +145,35 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("31/31", 30)                             # clamps at the last entry
         self.mame.wait_for("Game29.img", 30)
         self.mame.wait_for("31/31", 10)
-        self.mame.type("\n")                                       # ENTER on a file mounts it on the selected drive (:1: :0 is the boot disk)
-        self.mame.wait_for("Mounted Game29.img on :1", 30)
-        pass                                                        # (floppy boot: the drive is enabled, so no FUJIDRV hint)
-        self.assertEqual(nio.uris[2][0], "sd0:/Game29.img")
-        self.assertEqual(nio.catalog[1][1], "sd0:/Game29.img")      # catalogue entries follow the drive number
+        self.mame.type("\n")                                       # ENTER on a file mounts it on the selected drive (:2: :0 is the boot disk, :1 may be a floppy)
+        self.mame.wait_for("Mounted Game29.img on :2", 30)
+        self.assertEqual(nio.uris[3][0], "sd0:/Game29.img")
+        self.assertEqual(nio.catalog[2][1], "sd0:/Game29.img")      # catalogue entries follow the drive number
         self.assertNotIn(1, nio.uris)                               # nothing touched :0
-        self.mame.wait_for(":1 Game29.img", 10)
+        self.assertNotIn(2, nio.uris)                               # nor :1
+        self.mame.wait_for(":2 Game29.img", 10)
         self.mame.wait_for(":0 (boot disk)", 10)
         self.mame.press("Right")                                    # (Right = TAB): focus the drives pane
         self.mame.wait_for("[drives]", 10)
         self.mame.press("Down")
-        self.mame.wait_for("> :2", 10)
-        self.mame.press("Right")                                    # back to the files; ENTER now mounts on :2
+        self.mame.wait_for("> :3", 10)
+        self.mame.press("Right")                                    # back to the files; ENTER now mounts on :3
         self.mame.wait_for("[files]", 10)
         self.mame.type("\n")
-        self.mame.wait_for("Mounted Game29.img on :2", 30)
-        self.assertEqual(nio.uris[3][0], "sd0:/Game29.img")
+        self.mame.wait_for("Mounted Game29.img on :3", 30)
+        self.assertEqual(nio.uris[4][0], "sd0:/Game29.img")
         self.mame.press("Right")
         self.mame.wait_for("[drives]", 10)
-        self.mame.type("x")                                         # eject drive :2
+        self.mame.type("x")                                         # eject drive :3
         self.mame.wait_for("Ejected", 30)
-        self.assertNotIn(3, nio.uris)
-        self.assertNotIn(2, nio.catalog)
-        self.mame.wait_for(":2 (empty)", 10)
+        self.assertNotIn(4, nio.uris)
+        self.assertNotIn(3, nio.catalog)
+        self.mame.wait_for(":3 (empty)", 10)
         time.sleep(1)
-        self.mame.type("x")                                         # :2 is empty now
+        self.mame.type("x")                                         # :3 is empty now
         self.mame.wait_for("Nothing to eject", 30)
+        self.mame.press("↑")
+        self.mame.wait_for("> :2", 10)
         self.mame.press("↑")
         self.mame.wait_for("> :1", 10)
         self.mame.press("↑")
@@ -180,10 +182,12 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("is the boot disk", 10)
         self.mame.press("Down")
         self.mame.wait_for("> :1", 10)
+        self.mame.press("Down")
+        self.mame.wait_for("> :2", 10)
         self.mame.type("x")
         self.mame.wait_for("Ejected", 30)
-        self.assertNotIn(2, nio.uris)
-        self.assertNotIn(1, nio.catalog)
+        self.assertNotIn(3, nio.uris)
+        self.assertNotIn(2, nio.catalog)
         self.mame.type("q")
         self.mame.wait_for("LS-DOS Ready", 30)
 
@@ -251,9 +255,9 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("Game02.img", 30)
         self.mame.type("\n")                                       # directories first: ENTER on utils/ opens it
         self.mame.wait_for("Tool.img", 30)
-        self.mame.type("\n")                                       # mount Tool.img on :1
-        self.mame.wait_for("Mounted Tool.img on :1", 30)
-        for key, text in (("s", "sd0:/utils/Tool.img"), ("h", "A add"), ("w", "PREFERENCES"), ("s", ":2 (empty)"), ("b", "[files]")):
+        self.mame.type("\n")                                       # mount Tool.img on :2
+        self.mame.wait_for("Mounted Tool.img on :2", 30)
+        for key, text in (("s", "sd0:/utils/Tool.img"), ("h", "A add"), ("w", "PREFERENCES"), ("s", ":3 (empty)"), ("b", "[files]")):
             self.mame.type(key)
             self.mame.wait_for(text, 15)
         for _ in range(3):                                          # SHIFT+Right across the tabs and back
@@ -325,14 +329,14 @@ class ConfigAutostartTests(unittest.TestCase):
         self.mame.wait_for("[*Browse*]", 240)
         self.mame.wait_for("Game.img", 30)
         time.sleep(3)
-        self.assertEqual(self.mame.peek(0x0470 + 10, 1), b"\xc9")            # :1 starts disabled (nioboot)
-        self.mame.type("\n")                                                 # ENTER mounts Game.img on :1
+        self.assertEqual(self.mame.peek(0x0470 + 20, 1), b"\xc9")            # :2 starts disabled (nioboot)
+        self.mame.type("\n")                                                 # ENTER mounts Game.img on :2
         self.mame.wait_for("FUJIDRV runs when you quit", 30)
         self.mame.type("q")
-        self.mame.wait_for("FujiNet driver installed on :1", 60)
+        self.mame.wait_for("FujiNet driver installed on :2", 60)
         self.mame.wait_for("LS-DOS Ready", 30)
-        self.assertEqual(self.mame.peek(0x0470 + 10, 1), b"\xc3")            # enabled, pointing at the driver
-        self.assertEqual(self.nio.uris[2][0], "sd0:/Game.img")
+        self.assertEqual(self.mame.peek(0x0470 + 20, 1), b"\xc3")            # enabled, pointing at the driver
+        self.assertEqual(self.nio.uris[3][0], "sd0:/Game.img")
 
     def test_quitting_with_nothing_mounted_runs_no_installer(self):
         self.boot("nioboot-config.hex")
