@@ -41,7 +41,10 @@ What this sets up: the 4P boots LS-DOS with no floppy, entirely from images serv
    Why `.xfd`: a raw `.img` needs a sector-size hint, which the boot mount cannot give. A 184,320-byte `.xfd` is recognised as
    720 sectors of 256 bytes. `host:/` means the `fujinet-data` directory under the run directory.
 
-   Any image you want to `FMOUNT` must be a raw 256-byte-sector image like these (`trs80.lsdosfs.flat_image` makes one from a DMK).
+   Any image you want to `FMOUNT` must be a raw 256-byte-sector image like these (`trs80.lsdosfs.flat_image` makes one from a DMK,
+   `tools/jv3_to_img.py` from a JV3). fujinet-nio does not read JV3 or DMK yet: it serves the file's bytes as they are, so `DIR`
+   starts, shows some activity and then hangs or shows garbage. Check with `python3 tools/jv3_to_img.py in.dsk out.img`
+   (it refuses a file that is not JV3) and mount the `.img` from `host:/images/` instead of the `tnfs://` URL.
 
 ## Each test session
 
