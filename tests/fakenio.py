@@ -18,6 +18,9 @@ class FakeNio:
         self.clock = None                     # (year, month, day, hour, minute, second) the Clock device reports; None = no clock device
         self.appstore = {}                    # (namespace, key) -> bytes, the AppStore device (F1h)
         self.catalog = {}                     # index -> (flags, uri), the SlotCatalog device (F2h)
+        self.wifi_networks = []               # (ssid, rssi, auth)
+        self.wifi_joined = None               # (ssid, password) after a TryJoin
+        self.wifi_join_ok = True
         self.list_pages = True                # False: ListPages answers "unsupported" like older firmware
         self.mangle = []                      # queue of callables(response_wire) -> wire (fault injection); None = pass
 
@@ -148,6 +151,29 @@ class FakeNio:
         return (bytes([1 if parts[0] == "d" else 0, len(name)]) + name + int(parts[1]).to_bytes(4, "little")
                 + bytes(4) + bytes(4) + bytes(4))
 
+    def _wifi(self, p):
+        """Wi-Fi v1 (fujinet-nio docs): 1 status, 4 scan, 6 try-join, 7 join status."""
+        pl = p.payload
+        if p.command == 1:
+            ip = b"192.168.1.50" if self.wifi_joined else b""
+            link = 2 if self.wifi_joined else 0
+            return OK, bytes([1, link, 1, 0, 1, 0]) + bytes(6) + bytes([len(ip)]) + ip + bytes([0]) * 3 + bytes([0, 0, 0])
+        if p.command == 4:
+            start, limit = pl[1] | pl[2] << 8, pl[3]
+            chunk = self.wifi_networks[start:start + limit]
+            body = b"".join(bytes([len(s)]) + s.encode() + bytes(6) + bytes([r & 255, 6, a]) for s, r, a in chunk)
+            return OK, bytes([1, int(start + limit < len(self.wifi_networks)), len(chunk)]) + body
+        if p.command == 6:
+            sl = pl[1]
+            ssid = bytes(pl[2:2 + sl]).decode()
+            pw = bytes(pl[3 + sl:3 + sl + pl[2 + sl]]).decode()
+            if self.wifi_join_ok:
+                self.wifi_joined = (ssid, pw)
+            return OK, bytes([1])
+        if p.command == 7:
+            return OK, bytes([1, 2 if self.wifi_joined else 3])
+        return UNSUPPORTED, b""
+
     @staticmethod
     def _page_entry(line):
         """eflags, nameLen, name, size(4), mtime(4)."""
@@ -214,6 +240,8 @@ class FakeNio:
             status, payload = self._appstore(p)
         elif p.device == 0xF2:
             status, payload = self._catalog(p)
+        elif p.device == 0xF3:
+            status, payload = self._wifi(p)
         elif p.device == nd.FILE_DEVICE and p.command == 7 and self.list_pages:
             status, payload = self._pages(p.payload)
         elif p.device == nd.FILE_DEVICE and p.command == 7:
