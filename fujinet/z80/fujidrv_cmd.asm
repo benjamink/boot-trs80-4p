@@ -1,12 +1,16 @@
-; FUJIDRV -- install the resident FujiNet disk driver on a drive.   FUJIDRV :d   (d = 1-7; drive 0 is refused)
+; FUJIDRV -- install the resident FujiNet disk driver on drives.   FUJIDRV :d [:d ...]   (d = 1-7; drive 0 is refused)
 ;
 ; Copies the driver (build/fujidrv.pkg, made by tools/make_driver.py) just below HIGH$, lowers HIGH$ over it, relocates
 ; it to where it landed and points the drive's DCT at it. FMOUNT :d then attaches an image; the drive's FujiNet slot is d+1.
           org 3000h
           ld (cmdp),hl
           ld hl,(cmdp)
-          call skip_sp
+          xor a
+          ld (mask),a
+parse:    call skip_sp
           ld a,(hl)
+          cp 0Dh
+          jr z,parsed
           cp ':'
           jr nz,nocolon
           inc hl
@@ -17,12 +21,41 @@ nocolon:  ld a,(hl)
           jp nc,usage
           or a
           jp z,usage               ; drive 0 is where LS-DOS boots from
-          ld (drive),a
+          ld b,a
+          ld a,1
+shl:      add a,a                  ; a = 1 << drive
+          djnz shl
+          ld c,a
+          ld a,(mask)
+          or c
+          ld (mask),a
           inc hl
-          call skip_sp
-          ld a,(hl)
-          cp 0Dh
-          jp nz,usage
+          jr parse
+parsed:   ld a,(mask)
+          or a
+          jp z,usage
+          ld a,1
+          ld (drive),a
+inst_lp:  ld a,(drive)
+          cp 8
+          jr nc,all_done
+          ld b,a
+          ld a,1
+shi:      add a,a
+          djnz shi
+          ld c,a
+          ld a,(mask)
+          and c
+          call nz,install
+          ld a,(drive)
+          inc a
+          ld (drive),a
+          jr inst_lp
+all_done: ld hl,0
+          jp finish
+
+; install the driver on the drive in (drive); exits through `fail` when memory cannot be reserved
+install:
           ; ---- where to put it
           ld a,100                 ; @HIGH$
           ld b,0
@@ -106,9 +139,7 @@ rel_done: ; ---- this copy's FujiNet slot, in its own image
           ld (digit),a
           ld (digit2),a
           ld hl,m_done
-          call print
-          ld hl,0
-          jp finish
+          jp print                 ; (tail call: returns to the caller)
 usage:    ld hl,m_usage
           call print
           ld hl,1
@@ -132,9 +163,10 @@ skip_sp:  ld a,(hl)
 cmdp:     dw 0
 base:     dw 0
 drive:    db 0
+mask:     db 0
 m_done:   db "FujiNet driver installed on :"
 digit:    db "0 - now FMOUNT :"
 digit2:   db "0 uri",0Dh
-m_usage:  db "Usage: FUJIDRV :d   (d = drive 1-7)",0Dh
+m_usage:  db "Usage: FUJIDRV :d [:d ...]   (d = drive 1-7)",0Dh
 m_fail:   db "Could not reserve memory for the driver",0Dh
 pkg:      incbin "../../build/fujidrv.pkg"

@@ -98,6 +98,22 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.cpu.mem[h1 - self.pkg.total + 1 + self.pkg.slot], 4)
         self.assertEqual(self.dos.high, h1 - self.pkg.total)
 
+    def test_several_drives_in_one_command(self):
+        rc, text = self.run_installer("FUJIDRV :1 :3 5")
+        self.assertEqual(rc, 0, text)
+        total = self.pkg.total
+        self.assertEqual(self.dos.high, 0xF7FF - 3 * total)               # one copy per drive, stacked
+        m = self.cpu.mem
+        for n, drive in enumerate((1, 3, 5)):
+            dct = 0x0470 + 10 * drive
+            self.assertEqual(m[dct], 0xC3, drive)
+            base = 0xF800 - (n + 1) * total
+            self.assertEqual(m[dct + 1] | m[dct + 2] << 8, base + self.pkg.entry)
+            self.assertEqual(m[base + self.pkg.slot], drive + 1)
+        self.assertEqual(m[0x0470 + 20], 0x00)                            # :2 untouched (fake DOS starts zeroed)
+        for d in ":1", ":3", ":5":
+            self.assertIn(d, text)
+
     def test_bad_drive_is_a_usage_error_and_changes_nothing(self):
         for line in ("FUJIDRV", "FUJIDRV :9", "FUJIDRV :x", "FUJIDRV :2 junk"):
             rc, text = self.run_installer(line)

@@ -147,7 +147,7 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.wait_for("31/31", 10)
         self.mame.type("\n")                                       # ENTER on a file mounts it on the selected drive (:1: :0 is the boot disk)
         self.mame.wait_for("Mounted Game29.img on :1", 30)
-        self.mame.wait_for("run FUJIDRV :1 once", 10)
+        pass                                                        # (floppy boot: the drive is enabled, so no FUJIDRV hint)
         self.assertEqual(nio.uris[2][0], "sd0:/Game29.img")
         self.assertEqual(nio.catalog[1][1], "sd0:/Game29.img")      # catalogue entries follow the drive number
         self.assertNotIn(1, nio.uris)                               # nothing touched :0
@@ -160,7 +160,7 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.press("Right")                                    # back to the files; ENTER now mounts on :2
         self.mame.wait_for("[files]", 10)
         self.mame.type("\n")
-        self.mame.wait_for("run FUJIDRV :2 once", 30)
+        self.mame.wait_for("Mounted Game29.img on :2", 30)
         self.assertEqual(nio.uris[3][0], "sd0:/Game29.img")
         self.mame.press("Right")
         self.mame.wait_for("[drives]", 10)
@@ -295,6 +295,7 @@ class ConfigAutostartTests(unittest.TestCase):
         self.nio.clock = (2027, 11, 23, 14, 37, 45)
         self.nio.appstore[("config-nio", "hosts")] = b"sd0:/\n"
         self.nio.dirs["sd0:/"] = ["-  720 Nov 16 09:00 Game.img"]
+        self.nio.library["sd0:/Game.img"] = bytes(720 * 256)
         self.mame = Mame4P(ROMS, None, mode="serial")
         pty = self.mame.start()
         self.addCleanup(self.mame.stop)
@@ -318,6 +319,28 @@ class ConfigAutostartTests(unittest.TestCase):
         time.sleep(3)
         self.mame.type("q")
         self.mame.wait_for("LS-DOS Ready", 60)
+
+    def test_quitting_after_a_mount_installs_the_driver_on_that_drive(self):
+        self.boot("nioboot-config.hex")
+        self.mame.wait_for("[*Browse*]", 240)
+        self.mame.wait_for("Game.img", 30)
+        time.sleep(3)
+        self.assertEqual(self.mame.peek(0x0470 + 10, 1), b"\xc9")            # :1 starts disabled (nioboot)
+        self.mame.type("\n")                                                 # ENTER mounts Game.img on :1
+        self.mame.wait_for("FUJIDRV runs when you quit", 30)
+        self.mame.type("q")
+        self.mame.wait_for("FujiNet driver installed on :1", 60)
+        self.mame.wait_for("LS-DOS Ready", 30)
+        self.assertEqual(self.mame.peek(0x0470 + 10, 1), b"\xc3")            # enabled, pointing at the driver
+        self.assertEqual(self.nio.uris[2][0], "sd0:/Game.img")
+
+    def test_quitting_with_nothing_mounted_runs_no_installer(self):
+        self.boot("nioboot-config.hex")
+        self.mame.wait_for("[*Browse*]", 240)
+        time.sleep(3)
+        self.mame.type("q")
+        self.mame.wait_for("LS-DOS Ready", 60)
+        self.assertNotIn("driver installed", self.mame.screen())
 
     def test_the_plain_loader_still_stops_at_ls_dos_ready(self):
         self.boot("nioboot.hex")
