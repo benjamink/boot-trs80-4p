@@ -19,7 +19,7 @@ class Mame4P:
     def command(self):
         """The MAME command line. Headless by default; MAME4P_WINDOW=1 (or window=True) shows the emulator in a window."""
         window = self.window or os.environ.get("MAME4P_WINDOW") == "1"
-        video = ["-window", "-nomaximize", "-skip_gameinfo"] if window else ["-video", "none"]
+        video = ["-window", "-nomaximize", "-skip_gameinfo", "-natural", "-speed", os.environ.get("MAME4P_SPEED", "4")] if window else ["-video", "none"]
         cmd = ["mame", "trs80m4p", "-rompath", self.rom_dir, "-rs232", "pty"] + video + ["-sound", "none",
                "-noplugins", "-seconds_to_run", str(self.seconds), "-autoboot_script", os.path.join(HERE, "mame4p.lua")]
         if self.disk:

@@ -39,17 +39,22 @@ def main():
 
     mame = Mame4P(ROMS, disk, seconds=a.seconds, window=True)
     pty = mame.start()
-    fd = os.open(pty, os.O_RDWR | os.O_NOCTTY)
-    tty.setraw(fd)
     stop = threading.Event()
-    threading.Thread(target=serve, args=(fd, nio, stop), daemon=True).start()
     try:
-        mame.wait_for("Date MM/DD/YY", 120)
-        mame.type("01/02/26\n")
-        mame.wait_for("Time HH:MM:SS", 30)
-        mame.type("\n")
-        mame.wait_for("LS-DOS Ready", 30)
+        end = time.time() + 300
+        answered = set()
+        while "Ready" not in mame.screen():        # LS-DOS asks for the date and time first; answer unless it was already skipped
+            if time.time() > end:
+                raise TimeoutError("LS-DOS did not reach Ready; screen:\n" + mame.screen())
+            for prompt, reply in (("Date MM/DD/YY", "01/02/26\n"), ("Time HH:MM:SS", "\n")):
+                if prompt in mame.screen() and prompt not in answered:
+                    answered.add(prompt)
+                    mame.type(reply)
+            time.sleep(0.5)
         time.sleep(1)
+        fd = os.open(pty, os.O_RDWR | os.O_NOCTTY)         # only now: the tests also open the serial port after boot
+        tty.setraw(fd)
+        threading.Thread(target=serve, args=(fd, nio, stop), daemon=True).start()
         mame.type("CONFIG\n")
         print("CONFIG is running in the MAME window. Keys: SHIFT+Left/Right tabs, Up/Down, ENTER, Right = TAB, BREAK quits.")
         mame.proc.wait()
