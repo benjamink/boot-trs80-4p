@@ -32,7 +32,7 @@ AUTOSTART="${NIO_AUTOSTART:-1}"
 
 die() { echo "boot-fuji: $*" >&2; exit 1; }
 
-usage() { sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
