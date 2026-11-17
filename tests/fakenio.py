@@ -123,8 +123,8 @@ class FakeNio:
             flags, uri = self.catalog[idx]
             return OK, bytes([1, flags, idx]) + len(uri).to_bytes(2, "little") + uri.encode()   # the stored entry
         if p.command == 3:
-            self.catalog.pop(idx, None)
-            return OK, b""
+            gone = self.catalog.pop(idx, None) is not None
+            return OK, bytes([1, int(gone), idx])
         if p.command == 4:                                     # Range: presence bitmap, then the entries from `cursor`
             lower, upper, cursor, maxuri = pl[1], pl[2], pl[3], pl[5]
             room = pl[6] | pl[7] << 8
