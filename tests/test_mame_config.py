@@ -224,6 +224,25 @@ class ConfigOnMameTests(unittest.TestCase):
         self.mame.press("Break")
         self.mame.wait_for("LS-DOS Ready", 30)
 
+    def test_config_walks_every_tab_and_slots_shows_the_mounted_image(self):
+        nio = self.nio_with_folder(count=3)
+        self.start_config(nio)
+        self.mame.wait_for("Game02.img", 30)
+        self.mame.type("\n")                                       # directories first: ENTER on utils/ opens it
+        self.mame.wait_for("Tool.img", 30)
+        self.mame.type("\n")                                       # mount Tool.img on :0
+        self.mame.wait_for("Mounted Tool.img on :0", 30)
+        for key, text in (("s", "sd0:/utils/Tool.img"), ("h", "A add"), ("w", "PREFERENCES"), ("s", ":1 (empty)"), ("b", "[files]")):
+            self.mame.type(key)
+            self.mame.wait_for(text, 15)
+        for _ in range(3):                                          # SHIFT+Right across the tabs and back
+            self.mame.press("Left Shift+Right")
+            time.sleep(1.5)
+        self.mame.type("s")
+        self.mame.wait_for("sd0:/utils/Tool.img", 15)
+        self.mame.type("q")
+        self.mame.wait_for("LS-DOS Ready", 30)
+
     def test_unanswered_request_returns_to_ls_dos_with_an_error(self):
         self.boot({"NIOSELF/CMD": self.build("nio_selftest", with_client=True)})   # nobody answers on the line
         self.mame.type("NIOSELF\n")
