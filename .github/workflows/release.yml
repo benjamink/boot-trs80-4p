@@ -1,6 +1,8 @@
 # On every push to main (a merge): run the tests, build the FujiNet boot loader and the LS-DOS boot disk with the F* commands
 # and CONFIG, and publish them as a GitHub release.
 #
+# Runs in the builder image (ci/builder/Dockerfile, built by builder-image.yml) with z88dk, sjasmplus, Python and gh installed.
+#
 # Not in the repo, so fetched here: the LS-DOS 6.3.1 base disks (GmEsoft/LSDOS631L, MISOSYS grants free use if the notice is
 # kept; checked against the sha256 of the disk we develop with) and nio-config + fujinet-nio-lib (CONFIG/CMD is built from the
 # TRS-80 sources in nio-config with z88dk).
@@ -19,8 +21,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 env:
-  SJASMPLUS_VERSION: v1.24.0
   LSDOS_REF: f97394d482116a234930b57ab6c657d59793529b            # GmEsoft/LSDOS631L
   LSDOS_BASE_SHA256: d6de21eac954234c65ef2e5ac6e475a7df45bc71748b6bcf752556cc9d1c4b91   # LSDOS631L/L631NEW.DSK
   # TRS-80 CONFIG lives on this branch until it is merged upstream; then use fujinet-nio/nio-config @ master.
@@ -28,22 +33,19 @@ env:
   NIO_CONFIG_REF: feat/trs80-config-nio
   NIO_LIB_REPO: fujinet-nio/fujinet-nio-lib
   NIO_LIB_REF: master
-  Z88DK_IMAGE: z88dk/z88dk:20261116
 
 jobs:
   release:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    container:
+      image: ghcr.io/benjamink/boot-trs80-4p-builder:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Check out this repository
         uses: actions/checkout@v4
-
-      - name: Install sjasmplus
-        run: |
-          curl -fsSL "https://github.com/z00m128/sjasmplus/releases/download/${SJASMPLUS_VERSION}/sjasmplus-${SJASMPLUS_VERSION#v}-src.tar.xz" | tar xJ
-          make -C "sjasmplus-${SJASMPLUS_VERSION#v}" -j"$(nproc)"
-          sudo install "sjasmplus-${SJASMPLUS_VERSION#v}/sjasmplus" /usr/local/bin/sjasmplus
-          sjasmplus --version | head -1
 
       - name: Fetch the LS-DOS 6.3.1 base disks
         run: |
@@ -55,6 +57,9 @@ jobs:
           curl -fsSL -o images/lsdos631l-upstream/README.md \
             "https://raw.githubusercontent.com/GmEsoft/LSDOS631L/${LSDOS_REF}/README.md"
           echo "${LSDOS_BASE_SHA256}  images/lsdos631l-upstream/L631NEW.DSK" | sha256sum -c -
+
+      - name: Build the loaders and tools (the tests use build/*.hex)
+        run: make all
 
       - name: Tests
         run: python3 -m unittest discover -s tests
@@ -69,15 +74,13 @@ jobs:
 
       - name: Build CONFIG/CMD with z88dk
         run: |
-          docker run --rm -v "$PWD/nio:/nio" -w /nio/repos/nio-config -u "$(id -u):$(id -g)" "$Z88DK_IMAGE" \
-            make trs80
+          make -C nio/repos/nio-config trs80
           ls -l nio/repos/nio-config/trs80/build/config.bin
 
       - name: Build the loaders and the boot disk
         env:
           NIO_WORKSPACE: ${{ github.workspace }}/nio
         run: |
-          make all
           mkdir -p dist
           python3 tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out dist/boot.dsk
           cp build/nioboot.hex build/nioboot-config.hex dist/
@@ -101,6 +104,7 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           tag="build-${GITHUB_RUN_NUMBER}"
           short="${GITHUB_SHA::7}"
