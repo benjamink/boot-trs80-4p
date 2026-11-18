@@ -3,6 +3,15 @@ build/%.hex: z80/%.asm
 	@mkdir -p build
 	sjasmplus --nologo --msg=err --lst=build/$*.lst --sym=build/$*.sym --hex=$@ $<
 
+# memtest's kernel is assembled on its own (origin 9000h) and embedded in the driver, see z80/memtest_k.asm.
+build/memtest_k.bin: z80/memtest_k.asm z80/memtest_march.inc z80/memtest_defs.inc
+	@mkdir -p build
+	sjasmplus --nologo --msg=err --raw=$@ $<
+
+build/memtest.hex: z80/memtest.asm build/memtest_k.bin z80/memtest_march.inc z80/memtest_defs.inc
+	@mkdir -p build
+	sjasmplus --nologo --msg=err --lst=build/memtest.lst --sym=build/memtest.sym --hex=$@ $<
+
 # The FujiNet client and LS-DOS commands live in fujinet/ (meant to move upstream; see fujinet/README.md).
 build/%.hex: fujinet/z80/%.asm
 	@mkdir -p build
@@ -24,7 +33,7 @@ build/nioboot-config.hex: fujinet/z80/nioboot.asm fujinet/z80/fujidrv.asm fujine
 	@mkdir -p build
 	sjasmplus --nologo --msg=err -I fujinet/z80 '-DAUTO_CMD="CONFIG"' --lst=build/nioboot-config.lst --sym=build/nioboot-config.sym --hex=$@ $<
 
-all: build/nioclient_config.hex build/nioboot.hex build/nioboot-config.hex build/fujidrv_cmd.hex build/mon.hex build/dosio.hex build/serialcmd.hex build/nioclient.hex build/fmount.hex build/fumount.hex build/fdrive.hex build/fls.hex
+all: build/nioclient_config.hex build/nioboot.hex build/nioboot-config.hex build/fujidrv_cmd.hex build/mon.hex build/dosio.hex build/serialcmd.hex build/nioclient.hex build/fmount.hex build/fumount.hex build/fdrive.hex build/fls.hex build/memtest.hex
 clean:
 	rm -rf build
 .PHONY: all clean
