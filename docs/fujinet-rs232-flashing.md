@@ -8,8 +8,10 @@ from its own flash. Design: `docs/superpowers/specs/2026-11-18-fujinet-rs232-sta
 
     NIO=~/dev/fujinet-nio-workspace/repos/fujinet-nio
     make                                   # build/nioboot.cmd (the ROM-loader load module)
-    python3 tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out images/boot.dsk --no-config
-    python3 tools/stage_fujinet_flash.py --nio-repo $NIO       # --config also needs CONFIG/CMD on boot.dsk
+    make -C ~/dev/fujinet-nio-workspace/repos/nio-config trs80          # CONFIG (needs z88dk)
+    python3 tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out images/boot.dsk \
+        --config-bin ~/dev/fujinet-nio-workspace/repos/nio-config/trs80/build/config.bin   # adds CONFIG/CMD, drops BASIC
+    python3 tools/stage_fujinet_flash.py --nio-repo $NIO --config      # --config: CONFIG starts by itself after boot
     # in $NIO/platformio.local.ini, [fujinet]:  boot_images = trs80
     cd $NIO && ./build.sh -b && pio run -t buildfs     # firmware.bin and littlefs.bin under .pio/build/<board>/
 
@@ -48,6 +50,12 @@ Real 4P, 2026-11-18, ESP32-S3 RS-232 board, firmware from `feat/trs80-loader-sen
 2. `DIR :0`, `FUJIDRV :1`, `FDRIVE`, `FMOUNT`/`DIR :1`, correct `TIME` (Wi-Fi + SNTP + POSIX time zone).
 3. LS-DOS idle at the prompt for over a minute with the sender probing, then `DIR :0` and `FMOUNT`: no errors.
 4. Second Right-Shift + Reset: reloaded and booted by itself.
+
+### Bus LED
+
+The bus LED pulses on network and file transfers. Reads from the flash filesystem (where the boot disk lives) were not
+hooked up until `esp32: pulse the bus LED for flash filesystem reads and writes too`; without that the LED stayed dark
+while the 4P booted from flash.
 
 ### Gotcha: an SD card wins over flash
 
