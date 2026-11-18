@@ -33,7 +33,11 @@ build/nioboot-config.hex: fujinet/z80/nioboot.asm fujinet/z80/fujidrv.asm fujine
 	@mkdir -p build
 	sjasmplus --nologo --msg=err -I fujinet/z80 '-DAUTO_CMD="CONFIG"' --lst=build/nioboot-config.lst --sym=build/nioboot-config.sym --hex=$@ $<
 
-all: build/nioclient_config.hex build/nioboot.hex build/nioboot-config.hex build/fujidrv_cmd.hex build/mon.hex build/dosio.hex build/serialcmd.hex build/nioclient.hex build/fmount.hex build/fumount.hex build/fdrive.hex build/fls.hex build/memtest.hex
+# Ready-made load modules for the ROM serial loader (what trs80boot.py sends); the FujiNet firmware streams them as-is.
+build/%.cmd: build/%.hex tools/make_loader_cmd.py
+	python3 tools/make_loader_cmd.py $< $@
+
+all: build/nioboot.cmd build/nioboot-config.cmd build/nioclient_config.hex build/nioboot.hex build/nioboot-config.hex build/fujidrv_cmd.hex build/mon.hex build/dosio.hex build/serialcmd.hex build/nioclient.hex build/fmount.hex build/fumount.hex build/fdrive.hex build/fls.hex build/memtest.hex
 clean:
 	rm -rf build
 .PHONY: all clean
