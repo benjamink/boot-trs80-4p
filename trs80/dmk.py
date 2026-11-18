@@ -126,8 +126,9 @@ def parse_dmk(data):
     if len(data) < HEADER_LEN:
         raise ValueError("DMK header truncated")
     tracks, track_len, flags = data[1], struct.unpack_from("<H", data, 2)[0], data[4]
-    if tracks == 0 or track_len < TABLE_LEN + 1:
-        raise ValueError(f"implausible DMK header: tracks={tracks} track_len={track_len}")
+    if data[0] not in (0, 0xFF) or not 1 <= tracks <= 90 or not TABLE_LEN < track_len <= 0x2940 or flags & 0x2F or any(data[11:16]):
+        raise ValueError(f"not a DMK image (header says tracks={tracks} track_len={track_len}); a raw .img or a JV3 .dsk must be "
+                         "converted first, e.g. tools/jv3_to_dmk.py")
     sides = 1 if flags & 0x10 else 2
     track_list = []
     for k in range(tracks * sides):

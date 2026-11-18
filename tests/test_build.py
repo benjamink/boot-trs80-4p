@@ -17,6 +17,13 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(list(segs), [0x6000])
         self.assertLessEqual(len(segs[0x6000]), 0x400)
 
+    def test_memtest_is_one_segment_at_6000_below_its_variables(self):
+        segs, _ = self.build("memtest")
+        self.assertEqual(list(segs), [0x6000])                       # the ROM loader starts at the lowest address
+        self.assertLess(0x6000 + len(segs[0x6000]), 0x6E00)          # code must stay clear of the variables at 6E00h
+        kernel = open(os.path.join(ROOT, "build", "memtest_k.bin"), "rb").read()
+        self.assertTrue(segs[0x6000].endswith(kernel))               # the relocated kernel travels at the end of the image
+
 
 if __name__ == "__main__":
     unittest.main()
