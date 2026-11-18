@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write            # to create the tag and the release
+  packages: read            # to pull the builder image from ghcr.io
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
