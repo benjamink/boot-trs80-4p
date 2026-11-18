@@ -23,7 +23,7 @@ boot:
   config_uri: flash:/boot/trs80/boot.xfd
   readonly: false
 clock:
-  timezone: America/New_York
+  timezone: EST5EDT,M3.2.0,M11.1.0   # a POSIX TZ string: the ESP32 has no zoneinfo database
   enabled: true
 wifi:
   enabled: false

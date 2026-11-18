@@ -14,7 +14,7 @@ from its own flash. Design: `docs/superpowers/specs/2026-11-18-fujinet-rs232-sta
     cd $NIO && ./build.sh -b && pio run -t buildfs     # firmware.bin and littlefs.bin under .pio/build/<board>/
 
 The staged `fujinet.yaml` (flash root) sets 19200 8O1, `boot.config_uri: flash:/boot/trs80/boot.xfd`, time zone
-America/New_York, Wi-Fi off, and `trs80_loader` on (probe after 10 s without a valid FujiBus frame, every 100 ms).
+`EST5EDT,M3.2.0,M11.1.0` (a POSIX TZ string; the ESP32 has no zoneinfo, so an Olson name would mean UTC), Wi-Fi off, and `trs80_loader` on (probe after 10 s without a valid FujiBus frame, every 100 ms).
 
 ## Flash (ERASES the board's filesystem, including any saved Wi-Fi settings)
 
@@ -33,6 +33,12 @@ Nothing else may have `/dev/ttyACM0` open.
 
 If stray probe bytes upset LS-DOS (step 4), switch the sender to a boot window (probe only during the first 60 s after
 power-up); see the design's fallback.
+
+## Known limitation: the clock
+
+With Wi-Fi off the board never gets network time (SNTP starts only once Wi-Fi has an address), so `TIME` on the 4P is
+wrong until Wi-Fi is configured (set `wifi: {enabled: true, ssid: ..., passphrase: ...}` in the board's `fujinet.yaml`;
+the staged file deliberately carries no credentials). Everything else is independent of the clock.
 
 ## Results
 
