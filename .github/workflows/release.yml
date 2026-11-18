@@ -1,0 +1,126 @@
+# On every push to main (a merge): run the tests, build the FujiNet boot loader and the LS-DOS boot disk with the F* commands
+# and CONFIG, and publish them as a GitHub release.
+#
+# Runs in the builder image (ci/builder/Dockerfile, built by builder-image.yml) with z88dk, sjasmplus, Python and gh installed.
+#
+# Not in the repo, so fetched here: the LS-DOS 6.3.1 base disks (GmEsoft/LSDOS631L, MISOSYS grants free use if the notice is
+# kept; checked against the sha256 of the disk we develop with) and nio-config + fujinet-nio-lib (CONFIG/CMD is built from the
+# TRS-80 sources in nio-config with z88dk).
+name: Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:              # builds and tests only; the release is made on main
+  workflow_dispatch:
+
+permissions:
+  contents: write            # to create the tag and the release
+  packages: read            # to pull the builder image from ghcr.io
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  LSDOS_REF: f97394d482116a234930b57ab6c657d59793529b            # GmEsoft/LSDOS631L
+  LSDOS_BASE_SHA256: d6de21eac954234c65ef2e5ac6e475a7df45bc71748b6bcf752556cc9d1c4b91   # LSDOS631L/L631NEW.DSK
+  # TRS-80 CONFIG lives on this branch until it is merged upstream; then use fujinet-nio/nio-config @ master.
+  NIO_CONFIG_REPO: benjamink/nio-config
+  NIO_CONFIG_REF: feat/trs80-config-nio
+  NIO_LIB_REPO: fujinet-nio/fujinet-nio-lib
+  NIO_LIB_REF: master
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/benjamink/boot-trs80-4p-builder:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+
+      - name: Fetch the LS-DOS 6.3.1 base disks
+        run: |
+          mkdir -p images/lsdos631l-upstream
+          for f in L631NEW.DSK LD4-631.DSK LD4-631L.DSK; do
+            curl -fsSL -o "images/lsdos631l-upstream/$f" \
+              "https://raw.githubusercontent.com/GmEsoft/LSDOS631L/${LSDOS_REF}/LSDOS631L/$f"
+          done
+          curl -fsSL -o images/lsdos631l-upstream/README.md \
+            "https://raw.githubusercontent.com/GmEsoft/LSDOS631L/${LSDOS_REF}/README.md"
+          echo "${LSDOS_BASE_SHA256}  images/lsdos631l-upstream/L631NEW.DSK" | sha256sum -c -
+
+      - name: Build the loaders and tools (the tests use build/*.hex)
+        run: make all
+
+      - name: Tests
+        run: python3 -m unittest discover -s tests
+
+      - name: Check out nio-config and fujinet-nio-lib
+        run: |
+          mkdir -p nio/repos
+          git clone --depth 1 --branch "$NIO_CONFIG_REF" "https://github.com/$NIO_CONFIG_REPO" nio/repos/nio-config
+          git clone --depth 1 --branch "$NIO_LIB_REF" "https://github.com/$NIO_LIB_REPO" nio/repos/fujinet-nio-lib
+          git -C nio/repos/nio-config log -1 --format='nio-config %h %s'
+          git -C nio/repos/fujinet-nio-lib log -1 --format='fujinet-nio-lib %h %s'
+
+      - name: Build CONFIG/CMD with z88dk
+        run: |
+          make -C nio/repos/nio-config trs80
+          ls -l nio/repos/nio-config/trs80/build/config.bin
+
+      - name: Build the loaders and the boot disk
+        env:
+          NIO_WORKSPACE: ${{ github.workspace }}/nio
+        run: |
+          mkdir -p dist
+          python3 tools/make_boot_image.py --base images/lsdos631l-upstream/L631NEW.DSK --out dist/boot.dsk
+          cp build/nioboot.hex build/nioboot-config.hex dist/
+          # fujinet-nio serves raw 256-byte sectors, so a raw copy of the disk goes with it (boot.xfd: the name makes it read 720 x 256)
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, ".")
+          from trs80 import dmk, lsdosfs
+          open("dist/boot.xfd", "wb").write(lsdosfs.flat_image(dmk.parse_dmk(open("dist/boot.dsk", "rb").read())))
+          PY
+          (cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS)
+
+      - name: Keep the built files with the pull request run
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-files
+          path: dist/
+
+      - name: Publish the release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="build-${GITHUB_RUN_NUMBER}"
+          short="${GITHUB_SHA::7}"
+          cat > notes.md <<EOF2
+          Built from \`${short}\` on main (run ${GITHUB_RUN_NUMBER}).
+
+          - \`nioboot.hex\`: the loader the 4P's ROM serial loader runs; boots LS-DOS from fujinet-nio.
+          - \`nioboot-config.hex\`: the same, and LS-DOS starts \`CONFIG\` at the end of start-up.
+          - \`boot.dsk\`: LS-DOS 6.3.1 boot disk (DMK) with \`SERIAL\`, \`FMOUNT\`, \`FUMOUNT\`, \`FDRIVE\`, \`FLS\`, \`FUJIDRV\` and \`CONFIG\`
+            (LS-DOS BASIC, \`HELP/CMD\` and \`DOS/HLP\` removed to make room). Write it with \`writedisk.py\`.
+          - \`boot.xfd\`: the same disk as raw 256-byte sectors, for fujinet-nio's \`boot.config_uri\`.
+
+          nio-config $(git -C nio/repos/nio-config rev-parse --short HEAD) (${NIO_CONFIG_REPO}@${NIO_CONFIG_REF}).
+          LS-DOS 6.3.1 is MISOSYS software, free to use and redistribute if its notice is kept (see the LSDOS631L README).
+          Not yet verified on a real 4P.
+          EOF2
+          gh release create "$tag" dist/* --target "$GITHUB_SHA" --title "Build ${GITHUB_RUN_NUMBER} (${short})" \
+            --notes-file notes.md --prerelease
