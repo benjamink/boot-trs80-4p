@@ -8,6 +8,28 @@ Tools for a Model 4P connected to Linux by a null-modem cable (8 data bits, **od
 | `trs80mon.py` | boot the resident monitor, then `ping/peek/poke/exec/load` |
 | `writedisk.py` | write a DMK disk image (LS-DOS) to a floppy in the 4P's own drive |
 | `tools/monstress.py` | hardware gate for the monitor |
+| `build/memtest.hex` | comprehensive RAM test (below) |
+
+## RAM test (64 KB or 128 KB)
+
+    make build/memtest.hex
+    # 4P: hold RIGHT-SHIFT, press RESET until "Ready"
+    ./trs80boot.py build/memtest.hex --terminal
+
+It loads at 6000h, needs no disk, tests the two 1 KB pages of video RAM too (you will see the patterns on the screen), and reports over the serial line until you press RESET. It switches the 4P to
+all-RAM mode (port 84h) and tests every window of physical RAM, three ways per pass: a random fill with a few seconds'
+wait before verifying (refresh, retention, address lines, a second bank aliasing the first), March C- with four
+backgrounds (00/FF, 55/AA, 33/CC, 0F/F0), and the same March for the 4 KB at 6000-6FFF that holds the test itself (it saves
+those 4 KB at 8000h, runs a copy of the engine from 9000h, and puts them back). A pass takes about a minute.
+
+    Pass 1
+      10000-17FFF  march 55/AA: FAIL bits ....3... first @A010
+      06000-06FFF  march 00/FF 55/AA 33/CC 0F/F0 (via relocated kernel): OK
+
+The ranges are physical RAM (00000-0FFFF the first 64 KB, 10000-1FFFF the optional second bank); `bits` are D7..D0, i.e. one
+DRAM chip per bit and bank. On a 64 KB machine it says so and tests 64 KB. Idea and algorithm from misterblack1's
+trs80-diagnosticrom (a ROM image; it cannot run from RAM, so this is a separate implementation). Checked in MAME with 64K and
+128K and with injected stuck bits; **not yet run on a real 4P**.
 
 ## Writing LS-DOS 6.3.1 to a floppy (ERASES the floppy)
 
