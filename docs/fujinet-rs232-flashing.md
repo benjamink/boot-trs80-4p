@@ -42,4 +42,21 @@ the staged file deliberately carries no credentials). Everything else is indepen
 
 ## Results
 
-(To be filled in after the real-4P run.)
+Real 4P, 2026-11-18, ESP32-S3 RS-232 board, firmware from `feat/trs80-loader-sender`: all of the following passed.
+
+1. Right-Shift + Reset: the board sent the loader by itself and the 4P reached `LS-DOS Ready` (laptop not on the serial line).
+2. `DIR :0`, `FUJIDRV :1`, `FDRIVE`, `FMOUNT`/`DIR :1`, correct `TIME` (Wi-Fi + SNTP + POSIX time zone).
+3. LS-DOS idle at the prompt for over a minute with the sender probing, then `DIR :0` and `FMOUNT`: no errors.
+4. Second Right-Shift + Reset: reloaded and booted by itself.
+
+### Gotcha: an SD card wins over flash
+
+The config store prefers the SD card's `fujinet.yaml` (flash is only the mirror), and `fujinet-runtime-mounts.tsv` on the SD
+remounts old drives at start-up (drive 0 would beat the boot disk). With an SD card in the board, put the TRS-80 settings
+in the SD card's `fujinet.yaml` (`boot.config_uri: flash:/boot/trs80/boot.xfd`, `channel.uart.parity: odd`,
+`clock.timezone: EST5EDT,M3.2.0,M11.1.0`, the `trs80_loader` block) and move the runtime-mounts file aside. The board's USB
+port (`/dev/ttyACM0`, 115200) prints its log, including `trs80loader: TRS-80 loader sender on: ...` and
+`uart_ch: ... parity=odd` when the config is right.
+
+Going back to Amiga work: restore `fujinet.yaml.amiga` and `fujinet-runtime-mounts.tsv.amiga` (kept on the SD card and in
+`~/dev/fujinet-yaml-backups/`, which holds the Wi-Fi passphrase and stays out of git).
