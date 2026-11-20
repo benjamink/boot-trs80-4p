@@ -4,7 +4,7 @@
 FROM z88dk/z88dk:20261116
 
 ARG SJASMPLUS_VERSION=1.24.0
-LABEL org.opencontainers.image.source="https://github.com/benjamink/boot-trs80-4p" \
+LABEL org.opencontainers.image.source="https://github.com/fujinet-nio/boot-trs80-4p" \
       org.opencontainers.image.description="Build tools for boot-trs80-4p: z88dk, sjasmplus, python3, gh"
 
 RUN apk add --no-cache bash python3 git curl xz make g++ github-cli \
