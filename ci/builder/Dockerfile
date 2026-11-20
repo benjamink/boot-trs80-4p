@@ -1,7 +1,9 @@
 # The build environment for .github/workflows/release.yml: z88dk (for CONFIG/CMD), sjasmplus (the Z80 sources here),
 # Python 3 (tests and image tools), git, make and the GitHub CLI. Built and pushed to ghcr.io by builder-image.yml.
 # Alpine because the z88dk image is; GitHub's runner supports Alpine job containers.
-FROM z88dk/z88dk:20261116
+# Pinned: z88dk releases after 20260601 emit more code for nio-config trs80/ (image end CED6 at 20260907, CEA7 at 20261116), which trips its
+# 384-byte stack-reserve check (limit CE80). 20260105 builds the same CE76 image as the toolchain nio-config is developed with.
+FROM z88dk/z88dk:20260105
 
 ARG SJASMPLUS_VERSION=1.24.0
 LABEL org.opencontainers.image.source="https://github.com/fujinet-nio/boot-trs80-4p" \
