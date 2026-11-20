@@ -29,9 +29,8 @@ defaults:
 env:
   LSDOS_REF: f97394d482116a234930b57ab6c657d59793529b            # GmEsoft/LSDOS631L
   LSDOS_BASE_SHA256: d6de21eac954234c65ef2e5ac6e475a7df45bc71748b6bcf752556cc9d1c4b91   # LSDOS631L/L631NEW.DSK
-  # TRS-80 CONFIG lives on this branch until it is merged upstream; then use fujinet-nio/nio-config @ master.
-  NIO_CONFIG_REPO: benjamink/nio-config
-  NIO_CONFIG_REF: feat/trs80-config-nio
+  NIO_CONFIG_REPO: fujinet-nio/nio-config
+  NIO_CONFIG_REF: master
   NIO_LIB_REPO: fujinet-nio/fujinet-nio-lib
   NIO_LIB_REF: master
 
