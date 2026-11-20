@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Make a raw LS-DOS 6.3.1 data disk image holding the files you give, ready for fujinet-nio and FMOUNT.
 
   tools/make_data_image.py out.img TETRIS.CMD [more files...]      # TETRIS.CMD becomes TETRIS/CMD; --as NAME/EXT to rename one

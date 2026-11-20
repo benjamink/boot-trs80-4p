@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """LS-DOS / TRSDOS 6 file system access to a DmkImage: read, list, delete and add files.
 
 Layout (worked out from the real LS-DOS 6.3.1 images, cross-checked by hand against their hex):

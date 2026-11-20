@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 import hashlib, os, pty, tempfile, unittest
 
 from trs80 import lmf, serialio

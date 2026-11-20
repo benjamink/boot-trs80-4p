@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """trs80.dosfile against the real build/dosio.hex + build/mon.hex in the Z80 interpreter, with FakeDos
 standing in for LS-DOS."""
 import os, shutil, subprocess, unittest

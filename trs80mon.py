@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """trs80mon -- talk to the resident monitor on a TRS-80 Model 4P.
 
   trs80mon.py boot                 # ROM handshake, send build/mon.hex (run `make` first), ping

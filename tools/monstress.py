@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Hardware gate for the resident monitor: hammer it and count failures.
 
   tools/monstress.py [-p /dev/ttyUSB0]      (monitor must already be running: trs80mon.py boot)

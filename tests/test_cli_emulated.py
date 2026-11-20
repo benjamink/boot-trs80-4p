@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """The LS-DOS command programs (FMOUNT, FUMOUNT, FDRIVE) in the Z80 interpreter: command line in HL, text out through
 @DSPLY (FakeDos), the FujiNet on the other end of a simulated UART (FakeNio)."""
 import os, re, shutil, subprocess, unittest

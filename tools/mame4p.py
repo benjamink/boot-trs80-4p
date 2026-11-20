@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Drive MAME's Model 4P (trs80m4p) headless: boot LS-DOS from a disk image, type at it, read its screen, and reach
 its RS-232 port through a pty (19200 baud 8O1). For development without the real machine; see docs/superpowers/specs.
 

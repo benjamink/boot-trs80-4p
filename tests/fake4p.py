@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """A simulated 4P monitor, speaking the frame protocol, for host-side tests.
 
 It is the *transport* as the host sees it: host write() feeds the fake, host read()

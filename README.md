@@ -149,8 +149,12 @@ What MAME is not: it is not proof of real-hardware timing, and MAME's UART diffe
 
 ## Licence
 
-GPL-3.0-or-later (see `LICENSE`), so the FujiNet work can go upstream to fujinet-nio, which is GPL-3.0. The LS-DOS images under `images/` are not covered by it:
-they keep their own terms (`images/lsdos631l-upstream/LICENSE`), and the 4P ROMs are not part of this repo.
+Copyright (C) 2026 Benjamin Krein. GPL-3.0-or-later (see `LICENSE`; source files carry an SPDX header), so the FujiNet work can go upstream to
+fujinet-nio, which is GPL-3.0. The LS-DOS images under `images/` are not covered by it: they keep their own terms, and the 4P ROMs are not part
+of this repo. See `THIRD-PARTY-NOTICES.md`.
+
+TRS-80, Tandy, Radio Shack, LS-DOS, TRSDOS and FujiNet are trademarks or product names of their respective owners. This project is
+independent and is not affiliated with or endorsed by any of them.
 
 ## CONFIG demo
 

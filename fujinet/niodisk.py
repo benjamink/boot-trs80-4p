@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """DiskDevice (wire device 0xFC) payloads, per fujinet-nio docs/disk_device_protocol.md. All little endian."""
 from dataclasses import dataclass
 

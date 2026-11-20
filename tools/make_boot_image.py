@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Add CONFIG/CMD (the nio-config screens; drops LS-DOS BASIC to fit), SERIAL/CMD (the serial link, run from the LS-DOS prompt) and the FujiNet commands FMOUNT, FUMOUNT,
 FDRIVE, FLS and FUJIDRV (the resident serial disk driver) to an LS-DOS disk image; HELP/CMD and DOS/HLP are dropped to make room.
 

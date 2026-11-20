@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; FUJIDRV -- install the resident FujiNet disk driver on drives.   FUJIDRV :d [:d ...]   (d = 1-7; drive 0 is refused)
 ;
 ; Copies the driver (build/fujidrv.pkg, made by tools/make_driver.py) just below HIGH$, lowers HIGH$ over it, relocates

@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; nioboot.asm -- boot LS-DOS from a FujiNet image instead of a floppy.
 ;
 ; Sent through the 4P ROM's serial loader (right shift at reset), entry 5000h. It does what the ROM's floppy boot does:

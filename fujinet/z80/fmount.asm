@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; FMOUNT -- mount a disk image from the FujiNet on a drive.   FMOUNT :d uri [RO|RW] [SS=bytes]
 ; :d is the LS-DOS drive (0-7), which is FujiNet slot d+1. The URI is whatever fujinet-nio takes:
 ; host:/path, sd0:/path, tnfs://host/path. Mirrors FMOUNT of nio-core-apps (see docs/superpowers/plans).

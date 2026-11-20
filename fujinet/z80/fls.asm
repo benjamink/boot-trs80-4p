@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; FLS -- list a directory on the FujiNet's storage.   FLS [uri]      (default sd0:/)
 ; One line per entry as the FujiNet formats it (type, size, date, name; directories end in /).
           include "fcli.asm"

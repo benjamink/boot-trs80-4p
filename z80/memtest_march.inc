@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; memtest_march.inc -- the March C- engine, included twice by memtest.asm:
 ; once as part of the driver (tests everything except the driver's own 4 KB) and once inside the
 ; relocated kernel (tests the driver's 4 KB while the driver sits in a backup copy).

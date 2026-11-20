@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Convert a JV3 disk image to the raw 256-byte-sector image fujinet-nio can serve to FMOUNT (see trs80/jv3.py).
 
   tools/jv3_to_img.py Spro.dsk fujinet-data/images/spro.img

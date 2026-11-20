@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; mon.asm -- resident monitor for the TRS-80 Model 4P, loaded by the ROM serial loader.
 ; Speaks the frame protocol in trs80/frames.py. Entry 6000h. Stack 7000h (grows down).
 ;

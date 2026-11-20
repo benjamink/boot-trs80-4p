@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Write the raw 256-byte-sector images a PC-hosted fujinet-nio serves to the 4P (see docs/fujinet-nio-testing.md).
 
   tools/make_nio_images.py RUN_DIR      # makes RUN_DIR/fujinet-data/images/boot.xfd and work.img

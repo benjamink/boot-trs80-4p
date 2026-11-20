@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Write files onto the LS-DOS floppy in the 4P while SERIAL/CMD (the resident monitor) is running.
 
 The helpers in z80/dosio.asm call LS-DOS itself (@INIT, @WRITE, @CLOSE ...), so the file ends up

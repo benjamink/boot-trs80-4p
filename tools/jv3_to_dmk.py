@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Convert a single-sided double-density JV3 disk image to a DMK image that writedisk.py can put on a real floppy.
 
   tools/jv3_to_dmk.py Spro.dsk build/spro.dmk

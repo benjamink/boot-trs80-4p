@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Convert a DMK disk image to the raw 256-byte-sector image fujinet-nio serves to FMOUNT (LBA = cylinder * sectors per
 cylinder + sector, sectors in id order, no headers).
 

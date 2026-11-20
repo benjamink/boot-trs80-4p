@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; nioclient_config.asm -- the fujinet-nio client (nioclib.asm) for CONFIG/CMD, which is a C program that fills
 ; 3000h-CFFFh. Same entry table as nioclient.asm, relocated to D000h with its buffers at the top of user
 ; memory, below the resident driver at E000h:

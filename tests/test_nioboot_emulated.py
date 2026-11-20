@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """fujinet/z80/nioboot.asm: the loader the ROM's serial loader starts instead of a floppy boot (Z80 interpreter + FakeNio)."""
 import os, re, shutil, subprocess, unittest
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Show CONFIG (nio-config for the 4P) in the MAME emulator window, against the fake fujinet-nio.
 
   NIO_WORKSPACE=... tools/demo_config.py [--seconds 3600]

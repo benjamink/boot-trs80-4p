@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; FDRIVE -- show what the FujiNet has mounted.   FDRIVE
 ; One line per drive: "<d>: <RO|AUTO> <uri>", d = the LS-DOS drive number.
           include "fcli.asm"

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 import io, os, shutil, subprocess, tempfile, unittest
 
 import trs80put

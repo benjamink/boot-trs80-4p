@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; dosio.asm -- file-writing helpers for the host, uploaded at 8000h while SERIAL/CMD runs under LS-DOS.
 ; The host puts a filespec (e.g. "NAME/EXT:0", ended by 0Dh) into the FCB, data into IOBUF, and
 ; EXECs an entry point; the monitor returns A,F,B,C,D,E,H,L as the LS-DOS call left them

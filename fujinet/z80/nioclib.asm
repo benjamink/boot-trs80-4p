@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; nioclient.asm -- fujinet-nio client for the TRS-80 Model 4P: FujiBus packets in SLIP frames over the
 ; UART (EAh status, EBh data), plus the DiskDevice calls an LS-DOS driver / CONFIG needs.
 ; Protocol: fujinet-nio docs/protocol_reference.md and docs/disk_device_protocol.md (GPL-3.0 project).

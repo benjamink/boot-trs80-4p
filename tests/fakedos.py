@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """A stand-in for the few LS-DOS 6 supervisor calls dosio.asm / serialcmd.asm use (RST 28h, SVC in A).
 It follows the TRSDOS 6 Technical Reference: @INIT/@OPEN take HL = I/O buffer, DE = FCB with the
 filespec ended by 0Dh; the buffer address lands in FCB+3/4 and @WRITE writes from there; @CLOSE

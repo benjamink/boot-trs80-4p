@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Runs the real build/mon.hex in a tiny Z80 interpreter behind the real Monitor client."""
 import os, shutil, subprocess, unittest
 

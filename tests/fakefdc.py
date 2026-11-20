@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Python-level stand-in for trs80.fdc.Fdc with a simulated disk, for testing writedisk."""
 from trs80.fdc import DriveInfo, FdcError
 

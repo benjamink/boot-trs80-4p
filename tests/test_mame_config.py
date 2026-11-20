@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """CONFIG/CMD (nio-config's trs80/ C program, built with z88dk) on MAME's Model 4P.
 
 Opt-in like test_mame_integration:  MAME_TESTS=1 python3 -m unittest tests.test_mame_config

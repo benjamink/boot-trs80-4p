@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Forward bytes between two ptys/serial ports, logging both directions as hex (to stderr or --log FILE).
    tools/ptybridge.py /dev/pts/8 /path/to/ptyB --log bridge.log"""
 import argparse, os, select, sys, time, tty

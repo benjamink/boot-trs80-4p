@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Host driver for z80/fdc.asm, run on the 4P through the resident monitor."""
 import os
 from dataclasses import dataclass

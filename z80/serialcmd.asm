@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; serialcmd.asm -- LS-DOS /CMD front end for the resident monitor (mon.asm).
 ; Loaded at 5F00h by LS-DOS from SERIAL/CMD; the monitor itself follows at 6000h in the same file.
 ; Under LS-DOS the UART is not set up for us (the ROM loader did that when we booted over serial), so it is

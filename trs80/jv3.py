@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """JV3 disk images (Jeff Vavasour's format, as used by xtrs and many TRS-80 archives) -> the flat 256-byte-sector image the
 FujiNet driver serves (LBA = cylinder * sectors-per-cylinder + sector).
 

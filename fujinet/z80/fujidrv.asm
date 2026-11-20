@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; fujidrv.asm -- resident LS-DOS 6 disk driver that serves a drive from a fujinet-nio disk image over the 4P's UART.
 ;
 ; Installed by FUJIDRV/CMD (fujidrv_cmd.asm), which copies this image below HIGH$, sets v_slot and points a drive's DCT at drv_entry.

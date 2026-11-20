@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Monitor protocol framing (pure functions; no I/O).
 
 Request:  A5 cmd seq len payload[len] ck_lo ck_hi

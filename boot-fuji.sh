@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 # Boot a TRS-80 Model 4P from a PC-hosted fujinet-nio over the USB/serial adapter.
 #
 #   ./boot-fuji.sh                 # find the adapter, build the boot disk, send the loader, run fujinet-nio

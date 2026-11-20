@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Serial-port helpers for the TRS-80 4P: format setup, ROM-loader handshake, transport."""
 import os, select, termios, time, tty
 

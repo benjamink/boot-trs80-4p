@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """z80/nioclient.asm in the Z80 interpreter, talking FujiBus/SLIP to tests/fakenio.FakeNio through a simulated UART."""
 import os, random, re, shutil, subprocess, unittest
 

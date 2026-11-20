@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """trs80boot -- serial boot server for the TRS-80 Model 4P (Linux, no dependencies).
 
 The 4P has a serial loader in ROM (right-shift + reset). It accepts a TRSDOS

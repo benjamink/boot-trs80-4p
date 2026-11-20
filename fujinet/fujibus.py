@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """FujiBus packets inside SLIP frames: the wire format of fujinet-nio's RS-232 channel.
 
 Written from fujinet-nio's docs/protocol_reference.md (GPL-3.0 project; this repo is meant to be

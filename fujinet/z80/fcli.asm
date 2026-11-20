@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; fcli.asm -- shared start-up and helpers for the LS-DOS command programs that talk to a FujiNet
 ; (FMOUNT, FUMOUNT, FDRIVE, ...). Include first, then define `main`, then include "nioclib.asm".
 ;

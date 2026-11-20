@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; memtest_defs.inc -- addresses and port numbers shared by memtest.asm and memtest_k.asm
 
 UART_ST     equ 0EAh

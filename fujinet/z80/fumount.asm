@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; FUMOUNT -- release a drive's FujiNet image.   FUMOUNT :d
           include "fcli.asm"
 

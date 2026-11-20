@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 import os, tempfile, unittest
 
 from tools.zcc_cmd import bin_to_lmf

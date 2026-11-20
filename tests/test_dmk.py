@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 import glob, os, unittest
 
 from tests.dmkbuild import make_dmk, make_track, sector

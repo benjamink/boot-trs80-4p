@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Run fujinet/z80/nioclient.asm in the Z80 interpreter against a REAL fujinet-nio over a serial port / pty.
 
   fujinet/nio_live_check.py /path/to/pty --image fujinet-data/images/ls631.img [--write-test]

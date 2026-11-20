@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """A small Z80 interpreter covering the instructions our monitor/FDC code uses.
 Test support only. Unknown opcodes raise NotImplementedError."""
 from trs80 import lmf

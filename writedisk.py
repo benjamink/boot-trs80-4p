@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """writedisk -- write a DMK disk image to a floppy in the TRS-80 4P, over serial.
 
 Start the resident monitor first:  ./trs80mon.py boot   (right-shift + reset on the 4P).

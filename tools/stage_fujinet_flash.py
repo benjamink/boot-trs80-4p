@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Stage the TRS-80 boot assets into a fujinet-nio checkout so `./build.sh -f` packs them into the board's flash.
 
   tools/stage_fujinet_flash.py --nio-repo ~/dev/fujinet-nio-workspace/repos/fujinet-nio [--config]

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Builds the byte stream for the WD179x "Write Track" command from a parsed DMK track.
 
 Data-register codes (WD1793 data sheet, Type III Write Track):

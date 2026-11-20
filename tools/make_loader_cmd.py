@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Turn an Intel HEX file into the load module the 4P's ROM serial loader accepts.
 
   tools/make_loader_cmd.py build/nioboot.hex build/nioboot.cmd [--entry 0x5000]

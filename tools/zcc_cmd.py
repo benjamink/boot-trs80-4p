@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Turn a raw binary built by z88dk (loaded at a fixed address) into an LS-DOS /CMD load module."""
 from trs80.lmf import build_lmf
 

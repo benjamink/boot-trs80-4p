@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 import os, unittest
 from unittest import mock
 from tools.mame4p import Mame4P

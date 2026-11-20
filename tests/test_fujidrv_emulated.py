@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """The resident LS-DOS disk driver (fujinet/z80/fujidrv.asm) in the Z80 interpreter, with a FakeNio on the simulated UART.
 
 ABI under test (as MEMDISK/FLOPPY drivers of LS-DOS 6 use it): B = function, D = cylinder, E = sector, HL = buffer,

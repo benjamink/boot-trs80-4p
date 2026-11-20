@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 import os, shutil, subprocess, tempfile, unittest
 
 from tools.make_boot_image import BASIC_DROP, DROP, NAME, make_boot_image, serial_cmd, tool_cmd

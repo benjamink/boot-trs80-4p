@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Reference FujiBus/SLIP/DiskDevice codec, checked against the byte vectors in fujinet-nio's own docs
 (docs/protocol_reference.md section 11, docs/disk_device_test_vectors.md)."""
 import unittest

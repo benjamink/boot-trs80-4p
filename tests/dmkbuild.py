@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Builds synthetic DMK images for tests. Independent of trs80.dmk except for the CRC
 (which test_dmk checks against the standard CCITT test vector)."""
 import struct

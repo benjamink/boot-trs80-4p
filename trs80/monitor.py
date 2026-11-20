@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Host-side client for the resident Z80 monitor (see trs80.frames for the wire format).
 
 Transport interface: write(data: bytes) -> None; read(timeout: float) -> bytes

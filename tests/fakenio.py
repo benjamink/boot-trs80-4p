@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """A Python stand-in for fujinet-nio's DiskDevice, spoken over FujiBus/SLIP, for testing the Z80 client."""
 from fujinet import fujibus as fb
 from fujinet import niodisk as nd

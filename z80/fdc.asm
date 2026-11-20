@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; fdc.asm -- floppy routines for the TRS-80 Model 4P. Uploaded at 8000h by trs80.fdc.Fdc and
 ; run through the monitor's EXEC. EXEC cannot set registers, so parameters and results live
 ; in a parameter block at 9F00h.

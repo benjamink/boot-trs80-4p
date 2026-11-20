@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Build the relocatable package for the resident FujiNet disk driver (fujinet/z80/fujidrv.asm).
 
 The driver is assembled twice, at 1000h and 2000h; every byte that differs is the high byte of an address word, so the

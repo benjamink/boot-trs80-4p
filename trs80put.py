@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """trs80put -- copy files from this PC onto the LS-DOS floppy in the TRS-80 4P, over the serial cable.
 
 On the 4P (booted from the disk made by tools/make_boot_image.py), at the LS-DOS prompt, type:

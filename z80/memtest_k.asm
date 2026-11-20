@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; memtest_k.asm -- the kernel half of memtest.asm. It runs at K_BASE (9000h) while the driver's own 4 KB
 ; (6000-6FFFh) is being tested: March C- over D, then D is restored from its backup at S_BASE and control
 ; returns to d_march's caller. Built to build/memtest_k.bin (raw) and embedded into memtest.hex by memtest.asm.

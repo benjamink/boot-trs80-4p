@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Real LS-DOS 6.3.1 on MAME's Model 4P (real boot ROM, emulated WD FDC and TR1865 UART), driven over a pty.
 
 Opt-in because each test boots the machine (about a minute):  MAME_TESTS=1 python3 -m unittest tests.test_mame_integration

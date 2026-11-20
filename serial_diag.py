@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """serial_diag -- watch the serial port: modem-control lines + any received bytes.
 
   serial_diag.py                 # watch only

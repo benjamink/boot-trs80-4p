@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: GPL-3.0-or-later
+-- Copyright (C) 2026 Benjamin Krein
 -- Driven by tools/mame4p.py. Environment: MAME4P_CTL = path prefix for the control files, MAME4P_MODE = "disk" | "serial".
 --   <ctl>.cmd     commands from Python, one per line:  "keys <text>"  (\n inside the text = Enter),  "exit"
 --   <ctl>.screen  the 4P's text screen, rewritten about twice a second

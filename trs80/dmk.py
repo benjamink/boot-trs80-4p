@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """DMK disk image parser/serializer (David Keil's format, as used by the TRS-80 emulators).
 
 Layout: 16-byte header (byte1 = tracks, bytes2-3 = track record length, byte4 flags:

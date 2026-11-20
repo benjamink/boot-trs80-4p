@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Host Fdc driver against the real monitor + real fdc.hex in the Z80 interpreter and a fake WD1773."""
 import os, shutil, subprocess, unittest
 

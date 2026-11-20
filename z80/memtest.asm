@@ -1,3 +1,5 @@
+; SPDX-License-Identifier: GPL-3.0-or-later
+; Copyright (C) 2026 Benjamin Krein
 ; memtest.asm -- comprehensive RAM test for the TRS-80 Model 4P (64 KB or 128 KB), loaded by the ROM serial
 ; loader at 6000h (trs80boot.py build/memtest.hex --terminal). Reports over the RS-232 port (UART already set to
 ; 19200 baud 8O1 by the ROM loader) and keeps repeating until reset.

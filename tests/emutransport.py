@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Host transport backed by the monitor running in the Z80 interpreter ("time" = instructions).
 After each host write the CPU runs until it is idle in rx_wait with nothing left to read.
 Extra devices (e.g. a fake FDC) attach with attach(ports, io_in, io_out)."""

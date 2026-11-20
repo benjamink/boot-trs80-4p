@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """A crude WD1773 + drive-select latch model on ports F0-F4 for testing z80/fdc.asm.
 DRQ is raised on every second status read so the routines' polling loops are exercised."""
 

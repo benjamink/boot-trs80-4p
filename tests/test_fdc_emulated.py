@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Runs the real build/fdc.hex in the Z80 interpreter against a fake WD1773."""
 import os, re, shutil, subprocess, unittest
 

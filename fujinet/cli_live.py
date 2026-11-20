@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Benjamin Krein
 """Run one of the LS-DOS FujiNet commands (FMOUNT, FUMOUNT, FDRIVE ...) in the Z80 interpreter against a REAL fujinet-nio.
 
   fujinet/cli_live.py /path/to/pty "FMOUNT :0 host:/images/ls631.img ss=256"
